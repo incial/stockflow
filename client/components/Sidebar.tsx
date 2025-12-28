@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { User, UserRole } from '../types';
@@ -10,8 +11,9 @@ import {
   Store, 
   ChevronLeft, 
   ChevronRight,
-  Settings,
-  ShieldCheck
+  PackageMinus,
+  ShieldCheck,
+  ArrowRightLeft
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -26,10 +28,12 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   const navItems = user.role === UserRole.ADMIN 
     ? [
         { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+        { path: '/inventory', label: 'Inventory & Stock Out', icon: <ArrowRightLeft size={20} /> },
         { path: '/reports', label: 'Detailed Reports', icon: <FileText size={20} /> },
       ]
     : [
-        { path: '/', label: 'Stock Entry', icon: <PackageSearch size={20} /> },
+        { path: '/', label: 'Stock In (Entry)', icon: <PackageSearch size={20} /> },
+        { path: '/stock-out', label: 'Stock Out', icon: <PackageMinus size={20} /> },
       ];
 
   // Logic to determine CSS classes based on state

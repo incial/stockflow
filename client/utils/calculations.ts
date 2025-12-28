@@ -1,4 +1,5 @@
-import { StockEntry, Product, Outlet, EnrichedStockEntry } from '../types';
+
+import { StockEntry, StockOutEntry, Product, Outlet, EnrichedStockEntry } from '../types';
 
 export const calculateEntryMetrics = (
   entry: StockEntry,
@@ -40,4 +41,21 @@ export const formatDate = (dateString: string): string => {
     day: 'numeric',
     year: 'numeric'
   });
+};
+
+export const getAvailableStock = (
+  productId: string,
+  outletId: string,
+  stockInEntries: StockEntry[],
+  stockOutEntries: StockOutEntry[]
+): number => {
+  const totalIn = stockInEntries
+    .filter(e => e.productId === productId && e.outletId === outletId)
+    .reduce((sum, e) => sum + e.quantity, 0);
+
+  const totalOut = stockOutEntries
+    .filter(e => e.productId === productId && e.outletId === outletId)
+    .reduce((sum, e) => sum + e.quantity, 0);
+
+  return totalIn - totalOut;
 };

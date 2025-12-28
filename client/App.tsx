@@ -1,18 +1,21 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { User, UserRole, StockEntry, Product } from './types';
+import { User, UserRole, StockEntry, StockOutEntry, Product } from './types';
 import { MOCK_USERS, INITIAL_STOCK_ENTRIES, MOCK_PRODUCTS } from './constants';
 import Login from './views/Login';
 import AdminDashboard from './views/AdminDashboard';
 import RefillerDashboard from './views/RefillerDashboard';
+import StockOut from './views/StockOut';
 import Reports from './views/Reports';
+import InventoryReport from './views/InventoryReport';
 import MainLayout from './components/MainLayout';
 import { ToastProvider } from './context/ToastContext';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [entries, setEntries] = useState<StockEntry[]>(INITIAL_STOCK_ENTRIES);
+  const [stockOuts, setStockOuts] = useState<StockOutEntry[]>([]);
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
 
   // Persistence mock
@@ -38,6 +41,10 @@ const App: React.FC = () => {
     setEntries(prev => [...newEntries, ...prev]);
   };
 
+  const handleStockOutSubmit = (newStockOuts: StockOutEntry[]) => {
+    setStockOuts(prev => [...prev, ...newStockOuts]);
+  };
+
   if (!currentUser) {
     return <Login onLogin={handleLogin} />;
   }
@@ -50,6 +57,7 @@ const App: React.FC = () => {
             {currentUser.role === UserRole.ADMIN ? (
               <>
                 <Route path="/" element={<AdminDashboard entries={entries} products={products} />} />
+                <Route path="/inventory" element={<InventoryReport entries={entries} stockOuts={stockOuts} products={products} />} />
                 <Route path="/reports" element={<Reports entries={entries} products={products} />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </>
@@ -63,6 +71,18 @@ const App: React.FC = () => {
                       entries={entries} 
                       products={products}
                       onAddBatch={handleBatchSubmit} 
+                    />
+                  } 
+                />
+                <Route 
+                  path="/stock-out" 
+                  element={
+                    <StockOut
+                      user={currentUser}
+                      products={products}
+                      stockEntries={entries}
+                      stockOutEntries={stockOuts}
+                      onAddStockOut={handleStockOutSubmit}
                     />
                   } 
                 />

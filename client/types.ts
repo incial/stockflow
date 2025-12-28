@@ -34,6 +34,18 @@ export interface StockEntry {
   entryDate: string;
   enteredBy: string;
   createdAt: string;
+  additionalData?: Record<string, string | number>; // Dynamic fields
+}
+
+export interface StockOutEntry {
+  id: string;
+  outletId: string;
+  productId: string;
+  quantity: number;
+  date: string;
+  reason: string; // e.g. 'Sale', 'Damage'
+  enteredBy: string;
+  createdAt: string;
 }
 
 export interface EnrichedStockEntry extends StockEntry {
