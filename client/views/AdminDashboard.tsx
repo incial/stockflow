@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
-import { StockEntry, EnrichedStockEntry } from '../types';
-import { MOCK_PRODUCTS, MOCK_OUTLETS } from '../constants';
+import { StockEntry, Product } from '../types';
+import { MOCK_OUTLETS } from '../constants';
 import { calculateEntryMetrics, formatCurrency } from '../utils/calculations';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -11,12 +11,13 @@ import { TrendingUp, Package, Store, Percent, ArrowUpRight, ArrowDownRight } fro
 
 interface AdminDashboardProps {
   entries: StockEntry[];
+  products: Product[];
 }
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ entries }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ entries, products }) => {
   const enrichedEntries = useMemo(() => 
-    entries.map(e => calculateEntryMetrics(e, MOCK_PRODUCTS, MOCK_OUTLETS)),
-    [entries]
+    entries.map(e => calculateEntryMetrics(e, products, MOCK_OUTLETS)),
+    [entries, products]
   );
 
   const stats = useMemo(() => {
@@ -76,7 +77,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ entries }) => {
         />
         <KpiCard 
           title="Average Margin" 
-          value={`${stats.avgMargin.toFixed(1)}%`} 
+          value={`${isNaN(stats.avgMargin) ? 0 : stats.avgMargin.toFixed(1)}%`} 
           icon={<Percent size={20} />} 
           trend="-1.4%" 
           positive={false} 

@@ -1,17 +1,19 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { User, UserRole, StockEntry } from './types';
-import { MOCK_USERS, INITIAL_STOCK_ENTRIES } from './constants';
+import { User, UserRole, StockEntry, Product } from './types';
+import { MOCK_USERS, INITIAL_STOCK_ENTRIES, MOCK_PRODUCTS } from './constants';
 import Login from './views/Login';
 import AdminDashboard from './views/AdminDashboard';
 import RefillerDashboard from './views/RefillerDashboard';
 import Reports from './views/Reports';
 import MainLayout from './components/MainLayout';
+import { ToastProvider } from './context/ToastContext';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [entries, setEntries] = useState<StockEntry[]>(INITIAL_STOCK_ENTRIES);
+  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
 
   // Persistence mock
   useEffect(() => {
@@ -29,7 +31,10 @@ const App: React.FC = () => {
     localStorage.removeItem('sm_user');
   };
 
-  const addEntries = (newEntries: StockEntry[]) => {
+  const handleBatchSubmit = (newEntries: StockEntry[], newProducts: Product[]) => {
+    if (newProducts.length > 0) {
+      setProducts(prev => [...prev, ...newProducts]);
+    }
     setEntries(prev => [...newEntries, ...prev]);
   };
 
@@ -38,24 +43,36 @@ const App: React.FC = () => {
   }
 
   return (
-    <HashRouter>
-      <MainLayout user={currentUser} onLogout={handleLogout}>
-        <Routes>
-          {currentUser.role === UserRole.ADMIN ? (
-            <>
-              <Route path="/" element={<AdminDashboard entries={entries} />} />
-              <Route path="/reports" element={<Reports entries={entries} />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </>
-          ) : (
-            <>
-              <Route path="/" element={<RefillerDashboard user={currentUser} entries={entries} onAddEntries={addEntries} />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </>
-          )}
-        </Routes>
-      </MainLayout>
-    </HashRouter>
+    <ToastProvider>
+      <HashRouter>
+        <MainLayout user={currentUser} onLogout={handleLogout}>
+          <Routes>
+            {currentUser.role === UserRole.ADMIN ? (
+              <>
+                <Route path="/" element={<AdminDashboard entries={entries} products={products} />} />
+                <Route path="/reports" element={<Reports entries={entries} products={products} />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </>
+            ) : (
+              <>
+                <Route 
+                  path="/" 
+                  element={
+                    <RefillerDashboard 
+                      user={currentUser} 
+                      entries={entries} 
+                      products={products}
+                      onAddBatch={handleBatchSubmit} 
+                    />
+                  } 
+                />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </>
+            )}
+          </Routes>
+        </MainLayout>
+      </HashRouter>
+    </ToastProvider>
   );
 };
 

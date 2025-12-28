@@ -1,11 +1,13 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { StockEntry, Product, EnrichedStockEntry } from '../types';
-import { MOCK_PRODUCTS, MOCK_OUTLETS } from '../constants';
+import { MOCK_OUTLETS } from '../constants';
 import { calculateEntryMetrics, formatCurrency } from '../utils/calculations';
 import { FileDown, CalendarDays, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ReportsProps {
   entries: StockEntry[];
+  products: Product[];
 }
 
 interface ReportDataState {
@@ -13,7 +15,7 @@ interface ReportDataState {
   sortedDates: string[];
 }
 
-const Reports: React.FC<ReportsProps> = ({ entries }) => {
+const Reports: React.FC<ReportsProps> = ({ entries, products }) => {
   const [filterOutlet, setFilterOutlet] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -25,7 +27,7 @@ const Reports: React.FC<ReportsProps> = ({ entries }) => {
     entries.forEach(e => {
       if (filterOutlet && e.outletId !== filterOutlet) return;
       
-      const metrics = calculateEntryMetrics(e, MOCK_PRODUCTS, MOCK_OUTLETS);
+      const metrics = calculateEntryMetrics(e, products, MOCK_OUTLETS);
       const date = e.entryDate;
       datesSet.add(date);
 
@@ -35,7 +37,7 @@ const Reports: React.FC<ReportsProps> = ({ entries }) => {
 
     const sortedDates = Array.from(datesSet).sort().reverse();
     return { data, sortedDates };
-  }, [entries, filterOutlet]);
+  }, [entries, products, filterOutlet]);
 
   // Set default selected date to the latest available (last updated)
   useEffect(() => {
@@ -47,12 +49,12 @@ const Reports: React.FC<ReportsProps> = ({ entries }) => {
   // Group products by brand with explicit typing
   const brands = useMemo<Record<string, Product[]>>(() => {
     const grouped: Record<string, Product[]> = {};
-    MOCK_PRODUCTS.forEach(p => {
+    products.forEach(p => {
       if (!grouped[p.brand]) grouped[p.brand] = [];
       grouped[p.brand].push(p);
     });
     return grouped;
-  }, []);
+  }, [products]);
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
@@ -140,7 +142,7 @@ const Reports: React.FC<ReportsProps> = ({ entries }) => {
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(brands).map(([brand, products]: [string, Product[]]) => {
+                {(Object.entries(brands) as [string, Product[]][]).map(([brand, products]) => {
                   // Only show items that have entries for the currently selected date
                   const filteredProducts = products.filter(p => currentData[p.id]);
                   
