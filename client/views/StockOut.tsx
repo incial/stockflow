@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { User, StockEntry, StockOutEntry, Product } from '../types';
 import { getAvailableStock } from '../utils/calculations';
-import { Save, Calendar, PackageMinus, Info, Layers } from 'lucide-react';
+import { Save, Calendar, PackageMinus, Info, Layers, PackageOpen } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
 interface StockOutProps {
@@ -34,6 +34,23 @@ const StockOut: React.FC<StockOutProps> = ({
     });
     return grouped;
   }, [products]);
+
+  // Filter to only show brands/products with available stock > 0
+  const availableInventory = useMemo(() => {
+    const result: { brand: string; items: Product[] }[] = [];
+
+    (Object.entries(productsByBrand) as [string, Product[]][]).forEach(([brand, items]) => {
+      const availableItems = items.filter(p => 
+        getAvailableStock(p.id, user.outletId!, stockEntries, stockOutEntries) > 0
+      );
+      
+      if (availableItems.length > 0) {
+        result.push({ brand, items: availableItems });
+      }
+    });
+
+    return result;
+  }, [productsByBrand, user.outletId, stockEntries, stockOutEntries]);
 
   const handleInputChange = (productId: string, value: string) => {
     setFormData(prev => ({ ...prev, [productId]: value }));
@@ -114,6 +131,7 @@ const StockOut: React.FC<StockOutProps> = ({
           <button 
             onClick={handleSave}
             className="flex items-center justify-center gap-2 px-8 py-3 bg-rose-600 text-white rounded-xl hover:bg-rose-700 font-bold shadow-lg shadow-rose-200 transition-all hover:translate-y-[-1px]"
+            disabled={availableInventory.length === 0}
           >
             <Save size={18} />
             Confirm Stock Out
@@ -123,65 +141,68 @@ const StockOut: React.FC<StockOutProps> = ({
 
       <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-start gap-3 text-rose-800 text-sm">
         <Info size={18} className="shrink-0 mt-0.5" />
-        <p>Enter the quantity of items sold or removed. The system will validate against the current available stock.</p>
+        <p>Enter the quantity of items sold or removed. Only items with <strong>positive stock available</strong> are shown below.</p>
       </div>
 
       <div className="space-y-8">
-        {(Object.entries(productsByBrand) as [string, Product[]][]).map(([brand, products]) => (
-          <div key={brand} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="bg-slate-800 px-6 py-3 flex items-center gap-2">
-              <Layers size={16} className="text-slate-400" />
-              <span className="text-white font-bold tracking-wide">{brand}</span>
+        {availableInventory.length > 0 ? (
+          availableInventory.map(({ brand, items }) => (
+            <div key={brand} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-slate-800 px-6 py-3 flex items-center gap-2">
+                <Layers size={16} className="text-slate-400" />
+                <span className="text-white font-bold tracking-wide">{brand}</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 text-[10px] uppercase font-bold text-slate-500">
+                      <th className="px-6 py-3 w-16">#</th>
+                      <th className="px-6 py-3 min-w-[200px]">Item Name</th>
+                      <th className="px-6 py-3 w-32 text-center">MRP (₹)</th>
+                      <th className="px-6 py-3 w-32 text-center">Available</th>
+                      <th className="px-6 py-3 w-40 text-center">Qty Out</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {items.map((p, idx) => {
+                      const available = getAvailableStock(p.id, user.outletId!, stockEntries, stockOutEntries);
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-6 py-3 text-xs text-slate-400 font-mono">{idx + 1}</td>
+                          <td className="px-6 py-3 text-sm font-medium text-slate-700">{p.name}</td>
+                          <td className="px-6 py-3 text-sm text-center font-mono text-slate-500">{p.mrp.toFixed(2)}</td>
+                          <td className="px-6 py-3 text-center">
+                            <span className="inline-block px-2.5 py-0.5 rounded-md text-xs font-bold bg-emerald-100 text-emerald-700">
+                              {available}
+                            </span>
+                          </td>
+                          <td className="px-6 py-3">
+                            <input 
+                              type="number"
+                              placeholder="0"
+                              max={available}
+                              value={formData[p.id] || ''}
+                              onChange={(e) => handleInputChange(p.id, e.target.value)}
+                              className="w-full text-center py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none text-sm font-bold text-rose-600 transition-all"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 text-[10px] uppercase font-bold text-slate-500">
-                    <th className="px-6 py-3 w-16">#</th>
-                    <th className="px-6 py-3 min-w-[200px]">Item Name</th>
-                    <th className="px-6 py-3 w-32 text-center">MRP (₹)</th>
-                    <th className="px-6 py-3 w-32 text-center">Available</th>
-                    <th className="px-6 py-3 w-40 text-center">Qty Out</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {products.map((p, idx) => {
-                    const available = getAvailableStock(p.id, user.outletId!, stockEntries, stockOutEntries);
-                    return (
-                      <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-3 text-xs text-slate-400 font-mono">{idx + 1}</td>
-                        <td className="px-6 py-3 text-sm font-medium text-slate-700">{p.name}</td>
-                        <td className="px-6 py-3 text-sm text-center font-mono text-slate-500">{p.mrp.toFixed(2)}</td>
-                        <td className="px-6 py-3 text-center">
-                          <span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-bold ${
-                            available <= 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-700'
-                          }`}>
-                            {available}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3">
-                          <input 
-                            type="number"
-                            placeholder="0"
-                            max={available}
-                            value={formData[p.id] || ''}
-                            onChange={(e) => handleInputChange(p.id, e.target.value)}
-                            disabled={available <= 0}
-                            className={`w-full text-center py-2 bg-white border rounded-lg focus:ring-2 outline-none text-sm font-bold transition-all ${
-                              available <= 0 
-                                ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' 
-                                : 'border-slate-200 focus:ring-rose-500 focus:border-rose-500 text-rose-600'
-                            }`}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          ))
+        ) : (
+          <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-sm">
+             <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-4">
+                <PackageOpen size={32} className="text-slate-300" />
+             </div>
+             <h3 className="text-xl font-bold text-slate-800">No Stock Available</h3>
+             <p className="text-slate-500 mt-2 max-w-sm mx-auto">There are currently no items in stock to remove. Please add stock in the Stock In page first.</p>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
