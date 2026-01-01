@@ -1,39 +1,37 @@
 
 import React, { useState } from 'react';
-import { MOCK_USERS } from '../constants';
 import { User } from '../types';
-import { Lock, Mail, Store, ArrowRight } from 'lucide-react';
+import { Lock, Mail, Store, ArrowRight, AlertTriangle } from 'lucide-react';
+import { api } from '../services/api';
 
 interface LoginProps {
-  onLogin: (user: User) => void;
+  onLogin: (user: User, token: string) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('password'); // Dummy default
+  const [password, setPassword] = useState(''); 
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    // Simulate network delay for premium feel
-    setTimeout(() => {
-      const user = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
-      
-      if (user) {
-        onLogin(user);
-      } else {
-        setError('Invalid credentials. Please try again.');
-        setIsLoading(false);
-      }
-    }, 800);
+    try {
+      const response = await api.auth.login(email, password);
+      onLogin(response.user, response.token);
+    } catch (err: any) {
+      setError(err.message || 'Invalid credentials.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGoogleLogin = () => {
-    alert("This feature requires the backend server to be running with valid Google OAuth credentials.");
+    // In production, this would redirect to the OAuth endpoint
+    alert("Google OAuth is not configured in this environment.");
   };
 
   return (
@@ -136,8 +134,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </div>
 
             {error && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-semibold animate-in fade-in zoom-in duration-300 flex items-center justify-center">
-                {error}
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-semibold animate-in fade-in zoom-in duration-300 flex items-center gap-2">
+                <AlertTriangle size={16} />
+                <span>{error}</span>
               </div>
             )}
 
@@ -191,26 +190,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               Google
             </button>
           </form>
-
-          <div className="mt-8 pt-6 border-t border-dashed border-slate-200">
-            <p className="text-[10px] font-bold text-center text-slate-400 mb-3 tracking-wider uppercase">Quick Demo Access</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button 
-                onClick={() => setEmail('admin@system.com')}
-                className="flex flex-col items-center justify-center p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all group"
-              >
-                <span className="text-xs font-bold text-slate-800 group-hover:text-indigo-600">Admin</span>
-                <span className="text-[10px] text-slate-400">View Analytics</span>
-              </button>
-              <button 
-                onClick={() => setEmail('john@system.com')}
-                className="flex flex-col items-center justify-center p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all group"
-              >
-                <span className="text-xs font-bold text-slate-800 group-hover:text-indigo-600">Refiller</span>
-                <span className="text-[10px] text-slate-400">Manage Stock</span>
-              </button>
-            </div>
-          </div>
         </div>
         
         {/* Subtle footer */}
