@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { StockEntry, StockOutEntry, Product } from '../types';
 import { MOCK_OUTLETS, MOCK_USERS } from '../constants';
 import { getAvailableStock, formatDate } from '../utils/calculations';
-import { PackageMinus, Filter, History, Layers, ArrowRightLeft } from 'lucide-react';
+import { PackageMinus, Filter, History, Layers, ArrowRightLeft, Search, X } from 'lucide-react';
 
 interface InventoryReportProps {
   entries: StockEntry[];
@@ -16,6 +16,7 @@ type Tab = 'levels' | 'history';
 const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, products }) => {
   const [activeTab, setActiveTab] = useState<Tab>('levels');
   const [filterOutlet, setFilterOutlet] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // 1. Calculate Stock Levels per Product per Outlet
   const inventoryLevels = useMemo(() => {
@@ -30,11 +31,21 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
       available: number;
     }> = [];
 
+    const lowerQuery = searchQuery.toLowerCase().trim();
+
     // Iterate through all outlets and products to build the grid
     MOCK_OUTLETS.forEach(outlet => {
       if (filterOutlet && outlet.id !== filterOutlet) return;
 
       products.forEach(product => {
+        // Search Filter
+        if (lowerQuery) {
+          const matches = 
+            product.name.toLowerCase().includes(lowerQuery) || 
+            product.brand.toLowerCase().includes(lowerQuery);
+          if (!matches) return;
+        }
+
         const totalIn = entries
           .filter(e => e.outletId === outlet.id && e.productId === product.id)
           .reduce((sum, e) => sum + e.quantity, 0);
@@ -60,12 +71,32 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
     });
 
     return levels;
-  }, [entries, stockOuts, products, filterOutlet]);
+  }, [entries, stockOuts, products, filterOutlet, searchQuery]);
 
   // 2. Prepare History Log
   const historyLog = useMemo(() => {
+    const lowerQuery = searchQuery.toLowerCase().trim();
+
     return stockOuts
-      .filter(entry => filterOutlet ? entry.outletId === filterOutlet : true)
+      .filter(entry => {
+        if (filterOutlet && entry.outletId !== filterOutlet) return false;
+
+        if (lowerQuery) {
+           const product = products.find(p => p.id === entry.productId);
+           const user = MOCK_USERS.find(u => u.id === entry.enteredBy);
+           const outlet = MOCK_OUTLETS.find(o => o.id === entry.outletId);
+
+           const matches = 
+             (product?.name || '').toLowerCase().includes(lowerQuery) ||
+             (product?.brand || '').toLowerCase().includes(lowerQuery) ||
+             (user?.name || '').toLowerCase().includes(lowerQuery) ||
+             (outlet?.name || '').toLowerCase().includes(lowerQuery) ||
+             entry.reason.toLowerCase().includes(lowerQuery);
+           
+           if (!matches) return false;
+        }
+        return true;
+      })
       .map(entry => {
         const product = products.find(p => p.id === entry.productId);
         const outlet = MOCK_OUTLETS.find(o => o.id === entry.outletId);
@@ -79,27 +110,49 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
         };
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [stockOuts, products, filterOutlet]);
+  }, [stockOuts, products, filterOutlet, searchQuery]);
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Inventory & Stock Out</h2>
           <p className="text-slate-500">Monitor current stock levels and track detailed stock removal history.</p>
         </div>
         
-        {/* Outlet Filter */}
-        <div className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm">
-          <Filter size={16} className="text-slate-400" />
-          <select 
-            value={filterOutlet} 
-            onChange={(e) => setFilterOutlet(e.target.value)}
-            className="text-sm font-semibold outline-none bg-transparent"
-          >
-            <option value="">All Outlets</option>
-            {MOCK_OUTLETS.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Search Bar */}
+          <div className="relative group min-w-[280px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
+            <input 
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search product, brand, or reason..."
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium transition-all shadow-sm"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Outlet Filter */}
+          <div className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl shadow-sm min-w-max">
+            <Filter size={16} className="text-slate-400" />
+            <select 
+              value={filterOutlet} 
+              onChange={(e) => setFilterOutlet(e.target.value)}
+              className="text-sm font-semibold outline-none bg-transparent cursor-pointer"
+            >
+              <option value="">All Outlets</option>
+              {MOCK_OUTLETS.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          </div>
         </div>
       </header>
 
@@ -165,7 +218,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                       <Layers size={32} className="mx-auto mb-2 opacity-20" />
-                      <p>No inventory data found for the selected filter.</p>
+                      <p>No inventory data found matching your search.</p>
                     </td>
                   </tr>
                 )}
@@ -221,7 +274,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                       <History size={32} className="mx-auto mb-2 opacity-20" />
-                      <p>No stock out records found.</p>
+                      <p>No stock out records found matching your search.</p>
                     </td>
                   </tr>
                 )}

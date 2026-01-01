@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { User, StockEntry, StockOutEntry, Product } from '../types';
 import { getAvailableStock } from '../utils/calculations';
-import { Save, Calendar, PackageMinus, Info, Layers, PackageOpen } from 'lucide-react';
+import { Save, Calendar, PackageMinus, Info, Layers, PackageOpen, Search, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
 interface StockOutProps {
@@ -22,6 +22,7 @@ const StockOut: React.FC<StockOutProps> = ({
 }) => {
   const { addToast } = useToast();
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Track quantities to remove
   const [formData, setFormData] = useState<Record<string, string>>({});
@@ -35,14 +36,24 @@ const StockOut: React.FC<StockOutProps> = ({
     return grouped;
   }, [products]);
 
-  // Filter to only show brands/products with available stock > 0
+  // Filter to only show brands/products with available stock > 0 AND matches search query
   const availableInventory = useMemo(() => {
     const result: { brand: string; items: Product[] }[] = [];
+    const lowerQuery = searchQuery.toLowerCase().trim();
 
     (Object.entries(productsByBrand) as [string, Product[]][]).forEach(([brand, items]) => {
-      const availableItems = items.filter(p => 
-        getAvailableStock(p.id, user.outletId!, stockEntries, stockOutEntries) > 0
-      );
+      const availableItems = items.filter(p => {
+        // 1. Check if stock is available
+        const stock = getAvailableStock(p.id, user.outletId!, stockEntries, stockOutEntries);
+        if (stock <= 0) return false;
+
+        // 2. Check if matches search query (if present)
+        if (lowerQuery) {
+          return p.name.toLowerCase().includes(lowerQuery) || p.brand.toLowerCase().includes(lowerQuery);
+        }
+        
+        return true;
+      });
       
       if (availableItems.length > 0) {
         result.push({ brand, items: availableItems });
@@ -50,7 +61,7 @@ const StockOut: React.FC<StockOutProps> = ({
     });
 
     return result;
-  }, [productsByBrand, user.outletId, stockEntries, stockOutEntries]);
+  }, [productsByBrand, user.outletId, stockEntries, stockOutEntries, searchQuery]);
 
   const handleInputChange = (productId: string, value: string) => {
     setFormData(prev => ({ ...prev, [productId]: value }));
@@ -103,7 +114,8 @@ const StockOut: React.FC<StockOutProps> = ({
     <div className="space-y-8 pb-20">
       {/* Header */}
       <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-200 sticky top-0 z-20">
-        <div className="flex items-center gap-4">
+        {/* Title Section */}
+        <div className="flex items-center gap-4 min-w-max">
           <div className="bg-rose-500 p-3 rounded-2xl text-white">
             <PackageMinus size={24} />
           </div>
@@ -117,24 +129,47 @@ const StockOut: React.FC<StockOutProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        {/* Search Bar */}
+        <div className="flex-1 w-full xl:max-w-md mx-auto xl:mx-4">
+          <div className="relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-rose-500 transition-colors" size={20} />
+            <input 
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by product name or brand..."
+              className="w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none text-sm font-medium transition-all hover:bg-slate-100 focus:bg-white"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-200 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Actions Section */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 min-w-max">
           <div className="relative">
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="date"
               value={entryDate}
               onChange={(e) => setEntryDate(e.target.value)}
-              className="w-full sm:w-auto pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold shadow-sm"
+              className="w-full sm:w-auto pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none text-sm font-bold shadow-sm"
             />
           </div>
           
           <button 
             onClick={handleSave}
-            className="flex items-center justify-center gap-2 px-8 py-3 bg-rose-600 text-white rounded-xl hover:bg-rose-700 font-bold shadow-lg shadow-rose-200 transition-all hover:translate-y-[-1px]"
+            className="flex items-center justify-center gap-2 px-8 py-3 bg-rose-600 text-white rounded-xl hover:bg-rose-700 font-bold shadow-lg shadow-rose-200 transition-all hover:translate-y-[-1px] disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={availableInventory.length === 0}
           >
             <Save size={18} />
-            Confirm Stock Out
+            Confirm
           </button>
         </div>
       </header>
@@ -195,12 +230,26 @@ const StockOut: React.FC<StockOutProps> = ({
             </div>
           ))
         ) : (
-          <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-sm">
+          <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-sm animate-in fade-in zoom-in duration-300">
              <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-4">
-                <PackageOpen size={32} className="text-slate-300" />
+                {searchQuery ? <Search size={32} className="text-slate-300" /> : <PackageOpen size={32} className="text-slate-300" />}
              </div>
-             <h3 className="text-xl font-bold text-slate-800">No Stock Available</h3>
-             <p className="text-slate-500 mt-2 max-w-sm mx-auto">There are currently no items in stock to remove. Please add stock in the Stock In page first.</p>
+             <h3 className="text-xl font-bold text-slate-800">
+               {searchQuery ? 'No Items Found' : 'No Stock Available'}
+             </h3>
+             <p className="text-slate-500 mt-2 max-w-sm mx-auto">
+               {searchQuery 
+                 ? `We couldn't find any items matching "${searchQuery}". Try a different search term.` 
+                 : 'There are currently no items in stock to remove. Please add stock in the Stock In page first.'}
+             </p>
+             {searchQuery && (
+               <button 
+                 onClick={() => setSearchQuery('')}
+                 className="mt-4 px-4 py-2 text-sm font-semibold text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors"
+               >
+                 Clear Search
+               </button>
+             )}
           </div>
         )}
       </div>
