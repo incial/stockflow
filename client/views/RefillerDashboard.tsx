@@ -29,13 +29,9 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   const { addToast } = useToast();
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   
-  // Standard Form Data (Existing Products)
   const [formData, setFormData] = useState<Record<string, { qty: string, amt: string }>>({});
-
-  // Custom Tables State
   const [customTables, setCustomTables] = useState<CustomTable[]>([]);
 
-  // --- Handlers for Standard Items ---
   const productsByBrand = useMemo(() => {
     const grouped: Record<string, Product[]> = {};
     products.forEach(p => {
@@ -141,18 +137,13 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
     customTables.forEach(table => {
       table.rows.forEach(row => {
         if (row.name && row.qty && row.amt) {
-          // Generate a new Product ID
           const newProductId = `p-custom-${Math.random().toString(36).substr(2, 9)}`;
-          
-          // Create the Product
           newProducts.push({
             id: newProductId,
             name: row.name,
             brand: table.title || 'Uncategorized',
             mrp: parseFloat(row.mrp) || 0
           });
-
-          // Create the Entry
           newEntries.push({
             id: `s-${Math.random().toString(36).substr(2, 9)}`,
             outletId: user.outletId!,
@@ -173,8 +164,6 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
     }
 
     onAddBatch(newEntries, newProducts);
-    
-    // Reset
     setFormData({});
     setCustomTables([]);
     addToast(`Success! Saved ${newEntries.length} entries including ${newProducts.length} new products.`, "success");
@@ -183,95 +172,97 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   return (
     <div className="space-y-8 pb-20">
       {/* Header */}
-      <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-200 sticky top-0 z-20">
-        <div className="flex items-center gap-4">
-          <div className="bg-indigo-600 p-3 rounded-2xl text-white">
-            <Store size={24} />
+      <header className="glass-panel p-6 rounded-[32px] flex flex-col xl:flex-row xl:items-center justify-between gap-6 sticky top-4 z-20">
+        <div className="flex items-center gap-5">
+          <div className="bg-gradient-to-br from-indigo-500 to-violet-600 p-3.5 rounded-2xl text-white shadow-lg shadow-indigo-500/30">
+            <Store size={28} />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-slate-800">Stock Entry</h2>
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-               <span className="font-semibold text-slate-700">{user.name}</span>
-               <span>•</span>
+            <h2 className="text-3xl font-light text-slate-800 tracking-tight">Stock Entry</h2>
+            <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+               <span className="font-bold text-slate-700">{user.name}</span>
+               <span className="w-1 h-1 rounded-full bg-slate-300"></span>
                <span>{new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </div>
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <div className="relative group">
+            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
             <input 
               type="date"
               value={entryDate}
               onChange={(e) => setEntryDate(e.target.value)}
-              className="w-full sm:w-auto pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold shadow-sm"
+              className="w-full sm:w-auto pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold shadow-inner transition-all"
             />
           </div>
           
           <button 
             onClick={handleSave}
-            className="flex items-center justify-center gap-2 px-8 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-200 transition-all hover:translate-y-[-1px]"
+            className="flex items-center justify-center gap-2 px-8 py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-black font-bold shadow-xl shadow-slate-900/20 transition-all hover:-translate-y-0.5 active:translate-y-0"
           >
-            <Save size={18} />
+            <Save size={20} />
             Submit Batch
           </button>
         </div>
       </header>
 
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 p-4 rounded-2xl flex items-start gap-3 text-blue-800 text-sm">
-        <Info size={18} className="shrink-0 mt-0.5" />
-        <p>Enter quantity and cost amount for daily stock. Use <strong>"Add Category"</strong> below to create new product groups and add items that are not in the standard list.</p>
+      <div className="bg-indigo-50/50 backdrop-blur-sm border border-indigo-100 p-5 rounded-[24px] flex items-start gap-4 text-indigo-800 text-sm">
+        <div className="p-2 bg-indigo-100 rounded-full shrink-0">
+            <Info size={18} />
+        </div>
+        <p className="mt-1 leading-relaxed">Enter quantity and cost amount for daily stock. Use <strong>"Add Category"</strong> below to create new product groups and add items that are not in the standard list.</p>
       </div>
 
       {/* Standard Product Tables */}
       <div className="space-y-8">
         {(Object.entries(productsByBrand) as [string, Product[]][]).map(([brand, products]) => (
-          <div key={brand} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="bg-slate-800 px-6 py-3 flex items-center gap-2">
-              <Layers size={16} className="text-slate-400" />
-              <span className="text-white font-bold tracking-wide">{brand}</span>
+          <div key={brand} className="glass-panel rounded-[32px] overflow-hidden">
+            <div className="bg-slate-900/5 px-8 py-5 flex items-center gap-3 border-b border-white/10">
+              <Layers size={18} className="text-slate-500" />
+              <span className="text-slate-800 font-bold tracking-wide text-lg">{brand}</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 text-[10px] uppercase font-bold text-slate-500">
-                    <th className="px-6 py-3 w-16">#</th>
-                    <th className="px-6 py-3 min-w-[200px]">Item Name</th>
-                    <th className="px-6 py-3 w-32 text-center">MRP (₹)</th>
-                    <th className="px-6 py-3 w-32 text-center">Stock</th>
-                    <th className="px-6 py-3 w-40 text-center">Cost (₹)</th>
+                  <tr className="border-b border-slate-100 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    <th className="px-8 py-5 w-16">#</th>
+                    <th className="px-8 py-5 min-w-[200px]">Item Name</th>
+                    <th className="px-8 py-5 w-40 text-center">MRP (₹)</th>
+                    <th className="px-8 py-5 w-40 text-center">Stock</th>
+                    <th className="px-8 py-5 w-48 text-center">Cost (₹)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-50/50">
                   {products.map((p, idx) => (
-                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-3 text-xs text-slate-400 font-mono">{idx + 1}</td>
-                      <td className="px-6 py-3 text-sm font-medium text-slate-700">{p.name}</td>
-                      <td className="px-6 py-3 text-sm text-center font-mono text-slate-500">{p.mrp.toFixed(2)}</td>
-                      <td className="px-6 py-3">
+                    <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-8 py-4 text-xs text-slate-300 font-mono">{idx + 1}</td>
+                      <td className="px-8 py-4 text-sm font-semibold text-slate-700">{p.name}</td>
+                      <td className="px-8 py-4 text-sm text-center font-mono text-slate-500">{p.mrp.toFixed(2)}</td>
+                      <td className="px-8 py-4">
                         <input 
                           type="number"
                           placeholder="0"
                           value={formData[p.id]?.qty || ''}
                           onChange={(e) => handleInputChange(p.id, 'qty', e.target.value)}
-                          className="w-full text-center py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold transition-all focus:border-indigo-500"
+                          className="w-full text-center py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold transition-all"
                         />
                       </td>
-                      <td className="px-6 py-3">
+                      <td className="px-8 py-4">
                         <input 
                           type="number"
                           placeholder="0.00"
                           value={formData[p.id]?.amt || ''}
                           onChange={(e) => handleInputChange(p.id, 'amt', e.target.value)}
-                          className="w-full text-center py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-indigo-600 transition-all focus:bg-white focus:border-indigo-500"
+                          className="w-full text-center py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold text-indigo-600 transition-all focus:bg-white"
                         />
                       </td>
                     </tr>
                   ))}
-                  <tr className="bg-yellow-50/50">
-                    <td colSpan={4} className="px-6 py-3 text-sm font-bold text-slate-600 text-right">Total for {brand}</td>
-                    <td className="px-6 py-3 text-center text-sm font-bold text-indigo-700 bg-yellow-100/50 rounded-bl-xl">
+                  <tr className="bg-gradient-to-r from-amber-50/50 to-orange-50/50">
+                    <td colSpan={4} className="px-8 py-4 text-sm font-bold text-slate-600 text-right uppercase tracking-wider text-[11px]">Total for {brand}</td>
+                    <td className="px-8 py-4 text-center text-sm font-black text-slate-800">
                       ₹{calculateBrandTotal(products).toFixed(2)}
                     </td>
                   </tr>
@@ -283,96 +274,98 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
       </div>
 
       {/* Custom Tables Section */}
-      <div className="space-y-6">
+      <div className="space-y-6 pt-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2">
-            <PackagePlus className="text-emerald-500" />
+          <h3 className="text-xl font-bold text-slate-700 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-100 text-emerald-600">
+                <PackagePlus size={20} />
+            </div>
             Additional Categories
           </h3>
           <button 
             onClick={addCustomTable}
-            className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-dashed border-slate-300 text-slate-600 rounded-xl hover:border-indigo-500 hover:text-indigo-600 font-semibold transition-all hover:bg-indigo-50"
+            className="flex items-center gap-2 px-5 py-2.5 bg-white/50 backdrop-blur-sm border border-slate-200 text-slate-600 rounded-xl hover:border-indigo-500 hover:text-indigo-600 font-bold transition-all hover:bg-indigo-50/50 shadow-sm"
           >
             <Plus size={18} />
-            Add New Category Table
+            Add New Category
           </button>
         </div>
 
         {customTables.map((table) => (
-          <div key={table.id} className="bg-white rounded-3xl border-2 border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-slate-50 px-6 py-4 flex items-center justify-between border-b border-slate-200">
+          <div key={table.id} className="glass-panel rounded-[32px] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-slate-50/50 px-8 py-5 flex items-center justify-between border-b border-slate-200">
               <input 
                 type="text"
                 value={table.title}
                 onChange={(e) => updateTableTitle(table.id, e.target.value)}
-                placeholder="Enter Category Name (e.g. Snacks)"
+                placeholder="Enter Category Name"
                 className="bg-transparent text-lg font-bold text-slate-800 placeholder-slate-400 outline-none focus:underline decoration-indigo-500 decoration-2 underline-offset-4 w-full"
               />
               <button 
                 onClick={() => removeCustomTable(table.id)}
-                className="text-slate-400 hover:text-rose-500 p-2 hover:bg-rose-50 rounded-lg transition-colors"
+                className="text-slate-400 hover:text-rose-500 p-2 hover:bg-rose-50 rounded-xl transition-all"
                 title="Remove Table"
               >
-                <Trash2 size={18} />
+                <Trash2 size={20} />
               </button>
             </div>
             
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-white text-[10px] uppercase font-bold text-slate-400 border-b border-slate-100">
-                    <th className="px-6 py-3 w-16">#</th>
-                    <th className="px-6 py-3 min-w-[200px]">Item Name</th>
-                    <th className="px-6 py-3 w-32 text-center">MRP (₹)</th>
-                    <th className="px-6 py-3 w-32 text-center">Stock</th>
-                    <th className="px-6 py-3 w-40 text-center">Cost (₹)</th>
-                    <th className="px-6 py-3 w-12"></th>
+                  <tr className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-100 tracking-wider">
+                    <th className="px-8 py-5 w-16">#</th>
+                    <th className="px-8 py-5 min-w-[200px]">Item Name</th>
+                    <th className="px-8 py-5 w-40 text-center">MRP (₹)</th>
+                    <th className="px-8 py-5 w-40 text-center">Stock</th>
+                    <th className="px-8 py-5 w-48 text-center">Cost (₹)</th>
+                    <th className="px-8 py-5 w-12"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-50/50">
                   {table.rows.map((row, idx) => (
                     <tr key={row.id} className="hover:bg-slate-50/50">
-                      <td className="px-6 py-2 text-xs text-slate-300 font-mono">{idx + 1}</td>
-                      <td className="px-6 py-2">
+                      <td className="px-8 py-3 text-xs text-slate-300 font-mono">{idx + 1}</td>
+                      <td className="px-8 py-3">
                         <input 
                           type="text"
                           placeholder="Item Name"
                           value={row.name}
                           onChange={(e) => updateRowData(table.id, row.id, 'name', e.target.value)}
-                          className="w-full py-2 bg-transparent border-b border-transparent focus:border-indigo-500 outline-none text-sm font-medium text-slate-700 placeholder-slate-300"
+                          className="w-full py-2 bg-transparent border-b border-transparent focus:border-indigo-500 outline-none text-sm font-semibold text-slate-700 placeholder-slate-300"
                         />
                       </td>
-                      <td className="px-6 py-2">
+                      <td className="px-8 py-3">
                         <input 
                           type="number"
                           placeholder="0"
                           value={row.mrp}
                           onChange={(e) => updateRowData(table.id, row.id, 'mrp', e.target.value)}
-                          className="w-full text-center py-2 bg-slate-50 rounded-lg outline-none text-sm font-mono text-slate-600 focus:ring-1 focus:ring-indigo-500"
+                          className="w-full text-center py-2 bg-slate-50 rounded-xl outline-none text-sm font-mono text-slate-600 focus:ring-2 focus:ring-indigo-500/20"
                         />
                       </td>
-                      <td className="px-6 py-2">
+                      <td className="px-8 py-3">
                         <input 
                           type="number"
                           placeholder="0"
                           value={row.qty}
                           onChange={(e) => updateRowData(table.id, row.id, 'qty', e.target.value)}
-                          className="w-full text-center py-2 bg-white border border-slate-200 rounded-lg outline-none text-sm font-bold focus:border-indigo-500"
+                          className="w-full text-center py-2 bg-white border border-slate-200 rounded-xl outline-none text-sm font-bold focus:border-indigo-500 transition-all"
                         />
                       </td>
-                      <td className="px-6 py-2">
+                      <td className="px-8 py-3">
                         <input 
                           type="number"
                           placeholder="0.00"
                           value={row.amt}
                           onChange={(e) => updateRowData(table.id, row.id, 'amt', e.target.value)}
-                          className="w-full text-center py-2 bg-white border border-slate-200 rounded-lg outline-none text-sm font-bold text-indigo-600 focus:border-indigo-500"
+                          className="w-full text-center py-2 bg-white border border-slate-200 rounded-xl outline-none text-sm font-bold text-indigo-600 focus:border-indigo-500 transition-all"
                         />
                       </td>
-                      <td className="px-6 py-2 text-center">
+                      <td className="px-8 py-3 text-center">
                         <button 
                           onClick={() => removeRowFromTable(table.id, row.id)}
-                          className="text-slate-300 hover:text-rose-500 transition-colors"
+                          className="text-slate-300 hover:text-rose-500 transition-colors p-2 hover:bg-rose-50 rounded-lg"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -380,21 +373,20 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                     </tr>
                   ))}
                   
-                  {/* Footer of Custom Table */}
                   <tr>
-                    <td colSpan={2} className="px-6 py-3">
+                    <td colSpan={2} className="px-8 py-5">
                       <button 
                         onClick={() => addRowToTable(table.id)}
-                        className="flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors"
+                        className="flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-xl transition-colors"
                       >
                         <Plus size={14} />
                         Add Item
                       </button>
                     </td>
-                    <td colSpan={2} className="px-6 py-3 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    <td colSpan={2} className="px-8 py-5 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">
                       Subtotal
                     </td>
-                    <td className="px-6 py-3 text-center text-sm font-bold text-slate-700 bg-slate-50">
+                    <td className="px-8 py-5 text-center text-sm font-black text-slate-800">
                       ₹{calculateCustomTableTotal(table.rows).toFixed(2)}
                     </td>
                     <td></td>
@@ -406,12 +398,12 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
         ))}
 
         {customTables.length === 0 && (
-          <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
-             <div className="bg-white p-4 rounded-full inline-block shadow-sm mb-3">
-                <PackagePlus size={24} className="text-slate-300" />
+          <div className="text-center py-16 border-2 border-dashed border-slate-200/50 rounded-[32px] bg-slate-50/30 backdrop-blur-sm">
+             <div className="bg-white p-4 rounded-full inline-block shadow-sm mb-4">
+                <PackagePlus size={32} className="text-slate-300" />
              </div>
-             <p className="text-slate-500 font-medium">No custom categories added.</p>
-             <p className="text-xs text-slate-400 mt-1">Click "Add New Category Table" to insert items not in the list.</p>
+             <p className="text-slate-500 font-medium text-lg">No custom categories added.</p>
+             <p className="text-sm text-slate-400 mt-1">Click "Add New Category" to insert items not in the list.</p>
           </div>
         )}
       </div>
