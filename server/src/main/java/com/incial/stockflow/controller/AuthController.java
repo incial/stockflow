@@ -1,0 +1,23 @@
+package com.incial.stockflow.controller;
+
+import com.incial.stockflow.dto.request.LoginRequest;
+import com.incial.stockflow.dto.response.LoginResponse;
+import com.incial.stockflow.service.AuthService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
+public class AuthController {
+    
+    private final AuthService authService;
+    
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        LoginResponse response = authService.login(request);
+        return ResponseEntity.ok(response);
+    }
+}
