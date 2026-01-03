@@ -33,6 +33,6 @@ build/
 ### Dev ###
 
 .env
-
+/server/src/main/resources/seed
 /server/src/main/resources/application-dev.properties
 /server/src/main/resources/application-local.properties
