@@ -16,38 +16,74 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ProductService {
-    
+
     private final ProductRepository productRepository;
     private final AuditService auditService;
-    
+
     public List<Product> getAllProducts() {
         return productRepository.findAllByOrderByBrandAscNameAsc();
     }
-    
+
     public Product getProductById(UUID id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
     }
-    
+
     @Transactional
     public Product createProduct(ProductRequest request, User currentUser) {
         if (productRepository.existsByNameAndBrand(request.getName(), request.getBrand())) {
             throw new BusinessException("RES_002",
                     "Product with name '" + request.getName() + "' and brand '" + request.getBrand() + "' already exists");
         }
-        
+
         Product product = Product.builder()
                 .name(request.getName())
                 .brand(request.getBrand())
                 .mrp(request.getMrp())
                 .build();
-        
+
         Product savedProduct = productRepository.save(product);
-        
+
         // Log the action
         auditService.logAction(currentUser, "CREATE_PRODUCT", "Product", savedProduct.getId(),
                 "Created product: " + savedProduct.getName() + " (" + savedProduct.getBrand() + ")");
-        
+
         return savedProduct;
+    }
+
+    @Transactional
+    public Product updateProduct(UUID id, ProductRequest request, User currentUser) {
+        Product product = getProductById(id);
+
+        // Check if updating to a name/brand combo that already exists (excluding current product)
+        if (!product.getName().equals(request.getName()) || !product.getBrand().equals(request.getBrand())) {
+            if (productRepository.existsByNameAndBrand(request.getName(), request.getBrand())) {
+                throw new BusinessException("RES_002",
+                        "Product with name '" + request.getName() + "' and brand '" + request.getBrand() + "' already exists");
+            }
+        }
+
+        product.setName(request.getName());
+        product.setBrand(request.getBrand());
+        product.setMrp(request.getMrp());
+
+        Product updatedProduct = productRepository.save(product);
+
+        // Log the action
+        auditService.logAction(currentUser, "UPDATE_PRODUCT", "Product", updatedProduct.getId(),
+                "Updated product: " + updatedProduct.getName() + " (" + updatedProduct.getBrand() + ")");
+
+        return updatedProduct;
+    }
+
+    @Transactional
+    public void deleteProduct(UUID id, User currentUser) {
+        Product product = getProductById(id);
+
+        // Log the action before deletion
+        auditService.logAction(currentUser, "DELETE_PRODUCT", "Product", product.getId(),
+                "Deleted product: " + product.getName() + " (" + product.getBrand() + ")");
+
+        productRepository.delete(product);
     }
 }

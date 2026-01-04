@@ -17,20 +17,37 @@ import java.util.List;
 @RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
 public class ProductController {
-    
+
     private final ProductService productService;
-    
+
     @GetMapping
     public ResponseEntity<List<Product>> getAllProducts() {
         List<Product> products = productService.getAllProducts();
         return ResponseEntity.ok(products);
     }
-    
+
     @PostMapping
     public ResponseEntity<Product> createProduct(
             @Valid @RequestBody ProductRequest request,
             @AuthenticationPrincipal User currentUser) {
         Product product = productService.createProduct(request, currentUser);
         return ResponseEntity.status(HttpStatus.CREATED).body(product);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Product> updateProduct(
+            @PathVariable String id,
+            @Valid @RequestBody ProductRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        Product product = productService.updateProduct(java.util.UUID.fromString(id), request, currentUser);
+        return ResponseEntity.ok(product);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProduct(
+            @PathVariable String id,
+            @AuthenticationPrincipal User currentUser) {
+        productService.deleteProduct(java.util.UUID.fromString(id), currentUser);
+        return ResponseEntity.noContent().build();
     }
 }

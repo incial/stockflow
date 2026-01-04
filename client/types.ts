@@ -22,7 +22,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  outletId?: string; // Null for Admin
+  outletId?: string | null; // null for ADMIN, UUID for REFILLER
 }
 
 export interface StockEntry {
@@ -37,13 +37,15 @@ export interface StockEntry {
   additionalData?: Record<string, string | number>; // Dynamic fields
 }
 
+export type StockOutReason = 'Sale' | 'Damage' | 'Expiry' | 'Return' | 'Other';
+
 export interface StockOutEntry {
   id: string;
   outletId: string;
   productId: string;
   quantity: number;
   date: string;
-  reason: string; // e.g. 'Sale', 'Damage'
+  reason: StockOutReason;
   enteredBy: string;
   createdAt: string;
 }
@@ -57,4 +59,19 @@ export interface EnrichedStockEntry extends StockEntry {
   profit: number;
   margin: number;
   marginPerBottle: number;
+}
+
+export interface AuditLog {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userRole: UserRole;
+  action: string; // e.g., "CREATE", "UPDATE", "LOGIN"
+  entityType: string; // e.g., "Product", "StockEntry"
+  entityId?: string | null;
+  details: string;
+  ipAddress: string;
+  userAgent: string;
+  timestamp: string;
 }

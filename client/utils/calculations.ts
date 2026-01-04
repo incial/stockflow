@@ -6,20 +6,26 @@ export const calculateEntryMetrics = (
   products: Product[],
   outlets: Outlet[]
 ): EnrichedStockEntry => {
-  const product = products.find(p => p.id === entry.productId)!;
-  const outlet = outlets.find(o => o.id === entry.outletId)!;
+  const product = products.find(p => p.id === entry.productId);
+  const outlet = outlets.find(o => o.id === entry.outletId);
 
-  const revenue = product.mrp * entry.quantity;
+  // Fallback values if data is missing (e.g. deleted product/outlet or data sync issue)
+  const productName = product?.name || 'Unknown Product';
+  const brand = product?.brand || 'Unknown Brand';
+  const mrp = product?.mrp || 0;
+  const outletName = outlet?.name || 'Unknown Outlet';
+
+  const revenue = mrp * entry.quantity;
   const profit = revenue - entry.amount;
   const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
   const marginPerBottle = entry.quantity > 0 ? profit / entry.quantity : 0;
 
   return {
     ...entry,
-    productName: product.name,
-    brand: product.brand,
-    outletName: outlet.name,
-    mrp: product.mrp,
+    productName,
+    brand,
+    outletName,
+    mrp,
     revenue,
     profit,
     margin,
@@ -36,6 +42,7 @@ export const formatCurrency = (value: number): string => {
 };
 
 export const formatDate = (dateString: string): string => {
+  if (!dateString) return '-';
   return new Date(dateString).toLocaleDateString('en-IN', {
     month: 'short',
     day: 'numeric',

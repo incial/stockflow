@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { User, UserRole, StockEntry, StockOutEntry, Product } from './types';
+import { User, UserRole, StockEntry, StockOutEntry, Product, Outlet } from './types';
 import Login from './views/Login';
 import AdminDashboard from './views/AdminDashboard';
 import RefillerDashboard from './views/RefillerDashboard';
 import StockOut from './views/StockOut';
 import Reports from './views/Reports';
 import InventoryReport from './views/InventoryReport';
+import AuditLogs from './views/AuditLogs';
 import MainLayout from './components/MainLayout';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { api } from './services/api';
@@ -18,6 +19,7 @@ const AppContent: React.FC = () => {
   const [entries, setEntries] = useState<StockEntry[]>([]);
   const [stockOuts, setStockOuts] = useState<StockOutEntry[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [outlets, setOutlets] = useState<Outlet[]>([]);
   
   const [isGlobalLoading, setIsGlobalLoading] = useState(true);
   const { addToast } = useToast();
@@ -40,21 +42,28 @@ const AppContent: React.FC = () => {
     
     setIsGlobalLoading(true);
     try {
-      // Determine what data to fetch based on role
-      const fetchPromises = [
-        api.products.getAll(),
-        api.stockIn.getAll(currentUser.role === UserRole.REFILLER ? currentUser.outletId : undefined),
-        api.stockOut.getAll(currentUser.role === UserRole.REFILLER ? currentUser.outletId : undefined)
-      ];
+      const outletFilter = currentUser.role === UserRole.REFILLER ? (currentUser.outletId || undefined) : undefined;
 
-      const [fetchedProducts, fetchedEntries, fetchedStockOuts] = await Promise.all(fetchPromises);
+      // Parallel fetch for core data
+      const [fetchedProducts, fetchedEntries, fetchedStockOuts] = await Promise.all([
+        api.products.getAll(),
+        api.stockIn.getAll(outletFilter),
+        api.stockOut.getAll(outletFilter)
+      ]);
       
       setProducts(fetchedProducts as Product[]);
       setEntries(fetchedEntries as StockEntry[]);
       setStockOuts(fetchedStockOuts as StockOutEntry[]);
-    } catch (error) {
+
+      // Fetch outlets if Admin
+      if (currentUser.role === UserRole.ADMIN) {
+        const fetchedOutlets = await api.outlets.getAll();
+        setOutlets(fetchedOutlets as Outlet[]);
+      }
+
+    } catch (error: any) {
       console.error("Failed to load data", error);
-      addToast("Failed to connect to server. Ensure backend is running.", "error");
+      addToast(error.message || "Failed to connect to server.", "error");
     } finally {
       setIsGlobalLoading(false);
     }
@@ -79,20 +88,14 @@ const AppContent: React.FC = () => {
     setCurrentUser(null);
     setEntries([]);
     setStockOuts([]);
+    setOutlets([]);
   };
 
-  const handleBatchSubmit = async (newEntries: StockEntry[], newProducts: Product[]) => {
+  const handleBatchSubmit = async (newEntries: StockEntry[]) => {
     try {
       setIsGlobalLoading(true);
       
-      // 1. If there are new products (from custom tables), create them first
-      if (newProducts.length > 0) {
-        for (const p of newProducts) {
-           await api.products.create(p);
-        }
-      }
-
-      // 2. Prepare payload for backend
+      // Prepare payload for backend
       if (newEntries.length === 0) return;
       
       const payload = {
@@ -109,9 +112,9 @@ const AppContent: React.FC = () => {
       addToast("Stock successfully synced with server.", "success");
       await refreshData(); // Re-fetch to get server-generated IDs and consistency
       
-    } catch (error) {
+    } catch (error: any) {
        console.error(error);
-       addToast("Failed to save stock batch.", "error");
+       addToast(error.message || "Failed to save stock batch.", "error");
        setIsGlobalLoading(false);
     }
   };
@@ -134,9 +137,9 @@ const AppContent: React.FC = () => {
       await api.stockOut.addBatch(payload);
       addToast("Stock out recorded successfully.", "success");
       await refreshData();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      addToast("Failed to record stock out.", "error");
+      addToast(error.message || "Failed to record stock out.", "error");
       setIsGlobalLoading(false);
     }
   };
@@ -166,9 +169,10 @@ const AppContent: React.FC = () => {
         <Routes>
           {currentUser.role === UserRole.ADMIN ? (
             <>
-              <Route path="/" element={<AdminDashboard entries={entries} products={products} />} />
-              <Route path="/inventory" element={<InventoryReport entries={entries} stockOuts={stockOuts} products={products} />} />
-              <Route path="/reports" element={<Reports entries={entries} products={products} />} />
+              <Route path="/" element={<AdminDashboard entries={entries} products={products} outlets={outlets} />} />
+              <Route path="/inventory" element={<InventoryReport entries={entries} stockOuts={stockOuts} products={products} outlets={outlets} />} />
+              <Route path="/reports" element={<Reports entries={entries} products={products} outlets={outlets} />} />
+              <Route path="/audit-logs" element={<AuditLogs />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </>
           ) : (
