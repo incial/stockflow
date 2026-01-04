@@ -2,6 +2,7 @@ package com.incial.stockflow.service;
 
 import com.incial.stockflow.dto.request.StockInBatchRequest;
 import com.incial.stockflow.dto.request.StockInItemRequest;
+import com.incial.stockflow.dto.response.StockEntryResponse;
 import com.incial.stockflow.entity.*;
 import com.incial.stockflow.exception.BusinessException;
 import com.incial.stockflow.exception.ForbiddenException;
@@ -18,60 +19,108 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class StockInService {
-    
+
     private final StockEntryRepository stockEntryRepository;
     private final OutletService outletService;
     private final ProductService productService;
     private final AuditService auditService;
-    
-    public List<StockEntry> getStockEntries(UUID outletId, User currentUser) {
-        // REFILLER can only access their outlet
+
+    // ----------------------------------------------------------------
+    // READ API (DTO, not Entity)
+    // ----------------------------------------------------------------
+
+    @Transactional(readOnly = true)
+    public List<StockEntryResponse> getStockEntries(UUID outletId, User currentUser) {
+
+        List<StockEntry> entries;
+
+        // REFILLER: only their outlet
         if (currentUser.getRole() == UserRole.REFILLER) {
             if (currentUser.getOutlet() == null) {
                 throw new ForbiddenException("User has no outlet assigned");
             }
-            return stockEntryRepository.findByOutletIdOrderByEntryDateDescCreatedAtDesc(
-                    currentUser.getOutlet().getId());
+
+            entries = stockEntryRepository
+                    .findByOutletIdOrderByEntryDateDescCreatedAtDesc(
+                            currentUser.getOutlet().getId()
+                    );
         }
-        
-        // ADMIN can filter by outlet or see all
-        if (outletId != null) {
-            return stockEntryRepository.findByOutletIdOrderByEntryDateDescCreatedAtDesc(outletId);
+        // ADMIN: filter or all
+        else {
+            if (outletId != null) {
+                entries = stockEntryRepository
+                        .findByOutletIdOrderByEntryDateDescCreatedAtDesc(outletId);
+            } else {
+                entries = stockEntryRepository
+                        .findAllByOrderByEntryDateDescCreatedAtDesc();
+            }
         }
-        return stockEntryRepository.findAllByOrderByEntryDateDescCreatedAtDesc();
+
+        return entries.stream()
+                .map(this::toResponse)
+                .toList();
     }
-    
+
+    // ----------------------------------------------------------------
+    // WRITE API (BATCH INSERT)
+    // ----------------------------------------------------------------
+
     @Transactional
-    public List<StockEntry> addBatch(StockInBatchRequest request, User currentUser) {
-        // Validate outlet access
+    public List<StockEntryResponse> addBatch(
+            StockInBatchRequest request,
+            User currentUser
+    ) {
+
+        // -----------------------------
+        // Outlet access validation
+        // -----------------------------
+
         UUID effectiveOutletId = request.getOutletId();
+
         if (currentUser.getRole() == UserRole.REFILLER) {
             if (currentUser.getOutlet() == null) {
                 throw new ForbiddenException("User has no outlet assigned");
             }
+
             if (!currentUser.getOutlet().getId().equals(request.getOutletId())) {
-                throw new ForbiddenException("You can only add stock to your assigned outlet");
+                throw new ForbiddenException(
+                        "You can only add stock to your assigned outlet"
+                );
             }
+
             effectiveOutletId = currentUser.getOutlet().getId();
         }
-        
-        // Validate outlet exists
+
         Outlet outlet = outletService.getOutletById(effectiveOutletId);
-        
-        // Validate date is not in the future
+
+        // -----------------------------
+        // Business validations
+        // -----------------------------
+
         if (request.getEntryDate().isAfter(LocalDate.now())) {
-            throw new BusinessException("VAL_004", "Entry date cannot be in the future");
+            throw new BusinessException(
+                    "VAL_004",
+                    "Entry date cannot be in the future"
+            );
         }
-        
-        if (request.getItems().isEmpty()) {
-            throw new BusinessException("BIZ_002", "Batch must contain at least one item");
+
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new BusinessException(
+                    "BIZ_002",
+                    "Batch must contain at least one item"
+            );
         }
-        
-        List<StockEntry> entries = new ArrayList<>();
-        
+
+        // -----------------------------
+        // Persist batch
+        // -----------------------------
+
+        List<StockEntryResponse> responses = new ArrayList<>();
+
         for (StockInItemRequest item : request.getItems()) {
+
             Product product = productService.getProductById(item.getProductId());
-            
+
             StockEntry entry = StockEntry.builder()
                     .outlet(outlet)
                     .product(product)
@@ -79,15 +128,43 @@ public class StockInService {
                     .amount(item.getAmount())
                     .entryDate(request.getEntryDate())
                     .enteredBy(currentUser)
+                    .additionalData(item.getAdditionalData())
                     .build();
-            
-            entries.add(stockEntryRepository.save(entry));
+
+            StockEntry saved = stockEntryRepository.save(entry);
+            responses.add(toResponse(saved));
         }
-        
-        // Log the action
-        auditService.logAction(currentUser, "CREATE_STOCK_IN_BATCH", "StockEntry", null,
-                "Created " + entries.size() + " stock in entries for outlet: " + outlet.getName());
-        
-        return entries;
+
+        // -----------------------------
+        // Audit (AFTER persistence)
+        // -----------------------------
+
+        auditService.logAction(
+                currentUser,
+                "CREATE_STOCK_IN_BATCH",
+                "StockEntry",
+                null,
+                "Created " + responses.size()
+                        + " stock entries for outlet: "
+                        + outlet.getName()
+        );
+
+        return responses;
+    }
+
+    // ----------------------------------------------------------------
+    // Entity → DTO mapping (single responsibility)
+    // ----------------------------------------------------------------
+
+    private StockEntryResponse toResponse(StockEntry entry) {
+        return StockEntryResponse.builder()
+                .id(entry.getId())
+                .outletId(entry.getOutlet().getId())     // SAFE (ID only)
+                .productId(entry.getProduct().getId())  // SAFE (ID only)
+                .quantity(entry.getQuantity())
+                .amount(entry.getAmount())
+                .entryDate(entry.getEntryDate())
+                .additionalData(entry.getAdditionalData())
+                .build();
     }
 }
