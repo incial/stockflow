@@ -1,5 +1,5 @@
 
-import { StockEntry, StockOutEntry, Product, Outlet, User, StockOutReason } from '../types';
+import { StockEntry, StockOutEntry, Product, Outlet, User, StockOutReason, AuditLog } from '../types';
 
 // ============================================
 // Configuration
@@ -230,4 +230,20 @@ export const api = {
       return handleResponse<BatchResponse<StockOutEntry>>(response);
     },
   },
+
+  /**
+   * Audit APIs (Admin Only)
+   */
+  audit: {
+    /**
+     * Get all audit logs
+     */
+    getAll: async (): Promise<AuditLog[]> => {
+      const response = await fetch(`${API_BASE_URL}/audit`, {
+        method: 'GET',
+        headers: getHeaders(),
+      });
+      return handleResponse<AuditLog[]>(response);
+    },
+  }
 };

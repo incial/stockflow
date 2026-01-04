@@ -8,6 +8,7 @@ import RefillerDashboard from './views/RefillerDashboard';
 import StockOut from './views/StockOut';
 import Reports from './views/Reports';
 import InventoryReport from './views/InventoryReport';
+import AuditLogs from './views/AuditLogs';
 import MainLayout from './components/MainLayout';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { api } from './services/api';
@@ -90,34 +91,18 @@ const AppContent: React.FC = () => {
     setOutlets([]);
   };
 
-  const handleBatchSubmit = async (newEntries: StockEntry[], newProducts: Product[]) => {
+  const handleBatchSubmit = async (newEntries: StockEntry[]) => {
     try {
       setIsGlobalLoading(true);
       
-      const productMap: Record<string, string> = {}; // Map temp ID to real ID
-
-      // 1. If there are new products (from custom tables), create them first
-      if (newProducts.length > 0) {
-        for (const p of newProducts) {
-           const { id: tempId, ...productData } = p;
-           try {
-             const createdProduct = await api.products.create(productData);
-             productMap[tempId] = createdProduct.id;
-           } catch (e) {
-             console.error(`Failed to create product ${p.name}`, e);
-             throw new Error(`Failed to create product ${p.name}`);
-           }
-        }
-      }
-
-      // 2. Prepare payload for backend
+      // Prepare payload for backend
       if (newEntries.length === 0) return;
       
       const payload = {
         outletId: currentUser?.outletId || newEntries[0].outletId,
         entryDate: newEntries[0].entryDate,
         items: newEntries.map(e => ({
-          productId: productMap[e.productId] || e.productId, // Use real ID if mapped
+          productId: e.productId,
           quantity: e.quantity,
           amount: e.amount
         }))
@@ -187,6 +172,7 @@ const AppContent: React.FC = () => {
               <Route path="/" element={<AdminDashboard entries={entries} products={products} outlets={outlets} />} />
               <Route path="/inventory" element={<InventoryReport entries={entries} stockOuts={stockOuts} products={products} outlets={outlets} />} />
               <Route path="/reports" element={<Reports entries={entries} products={products} outlets={outlets} />} />
+              <Route path="/audit-logs" element={<AuditLogs />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </>
           ) : (

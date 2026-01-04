@@ -13,7 +13,8 @@ import {
   ChevronRight,
   PackageMinus,
   ShieldCheck,
-  ArrowRightLeft
+  ArrowRightLeft,
+  ScrollText
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -30,6 +31,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
         { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
         { path: '/inventory', label: 'Inventory & Stock Out', icon: <ArrowRightLeft size={20} /> },
         { path: '/reports', label: 'Detailed Reports', icon: <FileText size={20} /> },
+        { path: '/audit-logs', label: 'System Activity', icon: <ScrollText size={20} /> },
       ]
     : [
         { path: '/', label: 'Stock In (Entry)', icon: <PackageSearch size={20} /> },

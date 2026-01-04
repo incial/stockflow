@@ -60,3 +60,18 @@ export interface EnrichedStockEntry extends StockEntry {
   margin: number;
   marginPerBottle: number;
 }
+
+export interface AuditLog {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userRole: UserRole;
+  action: string; // e.g., "CREATE", "UPDATE", "LOGIN"
+  entityType: string; // e.g., "Product", "StockEntry"
+  entityId?: string | null;
+  details: string;
+  ipAddress: string;
+  userAgent: string;
+  timestamp: string;
+}
