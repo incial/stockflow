@@ -1,19 +1,20 @@
 
 import React, { useState, useMemo } from 'react';
-import { StockEntry, StockOutEntry, Product } from '../types';
-import { MOCK_OUTLETS, MOCK_USERS } from '../constants';
-import { getAvailableStock, formatDate } from '../utils/calculations';
-import { PackageMinus, Filter, History, Layers, ArrowRightLeft, Search, X } from 'lucide-react';
+import { StockEntry, StockOutEntry, Product, Outlet } from '../types';
+import { MOCK_USERS } from '../constants';
+import { formatDate } from '../utils/calculations';
+import { Filter, History, Layers, Search, X } from 'lucide-react';
 
 interface InventoryReportProps {
   entries: StockEntry[];
   stockOuts: StockOutEntry[];
   products: Product[];
+  outlets: Outlet[];
 }
 
 type Tab = 'levels' | 'history';
 
-const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, products }) => {
+const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, products, outlets }) => {
   const [activeTab, setActiveTab] = useState<Tab>('levels');
   const [filterOutlet, setFilterOutlet] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,7 +32,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
     }> = [];
     const lowerQuery = searchQuery.toLowerCase().trim();
 
-    MOCK_OUTLETS.forEach(outlet => {
+    outlets.forEach(outlet => {
       if (filterOutlet && outlet.id !== filterOutlet) return;
       products.forEach(product => {
         if (lowerQuery) {
@@ -56,7 +57,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
       });
     });
     return levels;
-  }, [entries, stockOuts, products, filterOutlet, searchQuery]);
+  }, [entries, stockOuts, products, outlets, filterOutlet, searchQuery]);
 
   const historyLog = useMemo(() => {
     const lowerQuery = searchQuery.toLowerCase().trim();
@@ -65,7 +66,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
         if (lowerQuery) {
            const product = products.find(p => p.id === entry.productId);
            const user = MOCK_USERS.find(u => u.id === entry.enteredBy);
-           const outlet = MOCK_OUTLETS.find(o => o.id === entry.outletId);
+           const outlet = outlets.find(o => o.id === entry.outletId);
            const matches = 
              (product?.name || '').toLowerCase().includes(lowerQuery) ||
              (product?.brand || '').toLowerCase().includes(lowerQuery) ||
@@ -78,7 +79,8 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
       })
       .map(entry => {
         const product = products.find(p => p.id === entry.productId);
-        const outlet = MOCK_OUTLETS.find(o => o.id === entry.outletId);
+        const outlet = outlets.find(o => o.id === entry.outletId);
+        // Fallback for user name until we implement fetching users from API
         const user = MOCK_USERS.find(u => u.id === entry.enteredBy);
         return {
           ...entry,
@@ -89,7 +91,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
         };
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [stockOuts, products, filterOutlet, searchQuery]);
+  }, [stockOuts, products, outlets, filterOutlet, searchQuery]);
 
   return (
     <div className="space-y-6">
@@ -129,7 +131,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
               className="text-sm font-bold text-slate-700 outline-none bg-transparent cursor-pointer"
             >
               <option value="">All Outlets</option>
-              {MOCK_OUTLETS.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              {outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </div>
         </div>

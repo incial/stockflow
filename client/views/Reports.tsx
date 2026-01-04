@@ -1,13 +1,13 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { StockEntry, Product, EnrichedStockEntry } from '../types';
-import { MOCK_OUTLETS } from '../constants';
+import { StockEntry, Product, EnrichedStockEntry, Outlet } from '../types';
 import { calculateEntryMetrics } from '../utils/calculations';
 import { FileDown, CalendarDays, Filter } from 'lucide-react';
 
 interface ReportsProps {
   entries: StockEntry[];
   products: Product[];
+  outlets: Outlet[];
 }
 
 interface ReportDataState {
@@ -15,7 +15,7 @@ interface ReportDataState {
   sortedDates: string[];
 }
 
-const Reports: React.FC<ReportsProps> = ({ entries, products }) => {
+const Reports: React.FC<ReportsProps> = ({ entries, products, outlets }) => {
   const [filterOutlet, setFilterOutlet] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -26,7 +26,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, products }) => {
     entries.forEach(e => {
       if (filterOutlet && e.outletId !== filterOutlet) return;
       
-      const metrics = calculateEntryMetrics(e, products, MOCK_OUTLETS);
+      const metrics = calculateEntryMetrics(e, products, outlets);
       const date = e.entryDate;
       datesSet.add(date);
 
@@ -36,7 +36,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, products }) => {
 
     const sortedDates = Array.from(datesSet).sort().reverse();
     return { data, sortedDates };
-  }, [entries, products, filterOutlet]);
+  }, [entries, products, outlets, filterOutlet]);
 
   useEffect(() => {
     if (reportData.sortedDates.length > 0 && !selectedDate) {
@@ -79,7 +79,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, products }) => {
               className="text-sm font-bold text-slate-700 outline-none bg-transparent cursor-pointer"
             >
               <option value="">All Outlets</option>
-              {MOCK_OUTLETS.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              {outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </div>
 

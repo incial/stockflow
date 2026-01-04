@@ -1,7 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { StockEntry, Product } from '../types';
-import { MOCK_OUTLETS } from '../constants';
+import { StockEntry, Product, Outlet } from '../types';
 import { calculateEntryMetrics, formatCurrency } from '../utils/calculations';
 import { 
   AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer, 
@@ -12,12 +11,13 @@ import { TrendingUp, Package, Percent, ArrowUpRight, ArrowDownRight, Activity } 
 interface AdminDashboardProps {
   entries: StockEntry[];
   products: Product[];
+  outlets: Outlet[];
 }
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ entries, products }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ entries, products, outlets }) => {
   const enrichedEntries = useMemo(() => 
-    entries.map(e => calculateEntryMetrics(e, products, MOCK_OUTLETS)),
-    [entries, products]
+    entries.map(e => calculateEntryMetrics(e, products, outlets)),
+    [entries, products, outlets]
   );
 
   const stats = useMemo(() => {
@@ -49,7 +49,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ entries, products }) =>
     return Object.entries(data).map(([date, values]) => ({ date, ...values }));
   }, [enrichedEntries]);
 
-  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
   return (
     <div className="space-y-8 pb-10">
@@ -162,33 +162,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ entries, products }) =>
           <p className="text-sm text-slate-400 mb-6">Profit distribution</p>
           
           <div className="flex-1 min-h-[250px] relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={profitByOutlet}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={8}
-                  dataKey="profit"
-                  cornerRadius={6}
-                >
-                  {profitByOutlet.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="transparent" />
-                  ))}
-                </Pie>
-                <Tooltip 
-                    contentStyle={{ 
-                        borderRadius: '12px', 
-                        background: 'rgba(255, 255, 255, 0.9)', 
-                        backdropFilter: 'blur(8px)',
-                        border: 'none',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' 
-                    }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {profitByOutlet.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={profitByOutlet}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={8}
+                    dataKey="profit"
+                    cornerRadius={6}
+                  >
+                    {profitByOutlet.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="transparent" />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                      contentStyle={{ 
+                          borderRadius: '12px', 
+                          background: 'rgba(255, 255, 255, 0.9)', 
+                          backdropFilter: 'blur(8px)',
+                          border: 'none',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' 
+                      }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-sm">
+                No data available
+              </div>
+            )}
             
             {/* Center Text */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -196,7 +202,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ entries, products }) =>
             </div>
           </div>
           
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 space-y-3 max-h-[200px] overflow-y-auto custom-scrollbar">
             {profitByOutlet.map((entry, index) => (
               <div key={entry.name} className="flex items-center justify-between text-sm group cursor-pointer hover:bg-slate-50/50 p-2 rounded-lg transition-colors">
                 <div className="flex items-center gap-3">
