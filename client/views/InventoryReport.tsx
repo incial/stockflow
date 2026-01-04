@@ -4,6 +4,7 @@ import { StockEntry, StockOutEntry, Product, Outlet } from '../types';
 import { MOCK_USERS } from '../constants';
 import { formatDate } from '../utils/calculations';
 import { Filter, History, Layers, Search, X } from 'lucide-react';
+import { CustomSelect } from '../components/CustomSelect';
 
 interface InventoryReportProps {
   entries: StockEntry[];
@@ -80,7 +81,6 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
       .map(entry => {
         const product = products.find(p => p.id === entry.productId);
         const outlet = outlets.find(o => o.id === entry.outletId);
-        // Fallback for user name until we implement fetching users from API
         const user = MOCK_USERS.find(u => u.id === entry.enteredBy);
         return {
           ...entry,
@@ -92,6 +92,11 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [stockOuts, products, outlets, filterOutlet, searchQuery]);
+
+  const outletOptions = [
+    { value: '', label: 'All Outlets' },
+    ...outlets.map(o => ({ value: o.id, label: o.name }))
+  ];
 
   return (
     <div className="space-y-6">
@@ -122,18 +127,12 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
             )}
           </div>
 
-          {/* Outlet Filter */}
-          <div className="flex items-center gap-3 bg-white border border-slate-200 px-5 py-3 rounded-2xl shadow-sm min-w-max">
-            <Filter size={18} className="text-slate-400" />
-            <select 
-              value={filterOutlet} 
-              onChange={(e) => setFilterOutlet(e.target.value)}
-              className="text-sm font-bold text-slate-700 outline-none bg-transparent cursor-pointer"
-            >
-              <option value="">All Outlets</option>
-              {outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
-          </div>
+          <CustomSelect 
+            value={filterOutlet}
+            onChange={setFilterOutlet}
+            options={outletOptions}
+            icon={<Filter size={18} />}
+          />
         </div>
       </header>
 
@@ -189,7 +188,9 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
                       </td>
                       <td className="px-8 py-4 text-center text-sm font-mono text-slate-600">{row.totalIn}</td>
                       <td className="px-8 py-4 text-center">
-                          <span className="text-sm font-mono text-rose-600 bg-rose-50 px-2 py-1 rounded-md">-{row.totalOut}</span>
+                          <span className={`text-sm font-mono px-2 py-1 rounded-md ${row.totalOut > 0 ? 'text-rose-600 bg-rose-50' : 'text-slate-400 bg-slate-50'}`}>
+                            {row.totalOut > 0 ? `-${row.totalOut}` : '0'}
+                          </span>
                       </td>
                       <td className="px-8 py-4 text-center">
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${

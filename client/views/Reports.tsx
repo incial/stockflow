@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { StockEntry, Product, EnrichedStockEntry, Outlet } from '../types';
 import { calculateEntryMetrics } from '../utils/calculations';
 import { FileDown, CalendarDays, Filter } from 'lucide-react';
+import { CustomSelect } from '../components/CustomSelect';
 
 interface ReportsProps {
   entries: StockEntry[];
@@ -59,6 +60,11 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets }) => {
 
   const currentData = selectedDate ? reportData.data[selectedDate] : null;
 
+  const outletOptions = [
+    { value: '', label: 'All Outlets' },
+    ...outlets.map(o => ({ value: o.id, label: o.name }))
+  ];
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -67,21 +73,16 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets }) => {
           <p className="text-slate-500 mt-1 text-lg">Daily consolidated metrics.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {/* Outlet Filter */}
-          <div className="flex items-center gap-3 bg-white border border-slate-200 px-5 py-3 rounded-2xl shadow-sm">
-            <Filter size={18} className="text-slate-400" />
-            <select 
-              value={filterOutlet} 
-              onChange={(e) => {
-                setFilterOutlet(e.target.value);
-                setSelectedDate(null);
-              }}
-              className="text-sm font-bold text-slate-700 outline-none bg-transparent cursor-pointer"
-            >
-              <option value="">All Outlets</option>
-              {outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
-          </div>
+          
+          <CustomSelect 
+            value={filterOutlet}
+            onChange={(val) => {
+              setFilterOutlet(val);
+              setSelectedDate(null);
+            }}
+            options={outletOptions}
+            icon={<Filter size={18} />}
+          />
 
           <button 
             onClick={() => alert("Generating Excel Export for " + selectedDate)}

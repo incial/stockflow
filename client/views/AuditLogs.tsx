@@ -2,8 +2,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { api } from '../services/api';
 import { AuditLog } from '../types';
-import { Loader2, ShieldAlert, Clock, Tag, Search, Filter, X, ChevronDown } from 'lucide-react';
+import { Loader2, ShieldAlert, Clock, Tag, Search, Filter, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { CustomSelect } from '../components/CustomSelect';
 
 const AuditLogs: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -19,17 +20,11 @@ const AuditLogs: React.FC = () => {
   const fetchLogs = async () => {
     try {
       const data = await api.audit.getAll();
-      // Robustly filter out login and session-related events
       const cleanLogs = data.filter(log => {
         const action = (log.action || '').toUpperCase();
         const details = (log.details || '').toUpperCase();
-        
-        // Check for Login/Sign-in in action
         if (action.includes('LOGIN') || action.includes('SIGN') || action.includes('AUTH')) return false;
-        
-        // Check for specific login phrasing in details
         if (details.includes('LOGGED IN') || details.includes('SESSION')) return false;
-        
         return true;
       });
       setLogs(cleanLogs);
@@ -42,7 +37,6 @@ const AuditLogs: React.FC = () => {
 
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
-      // 1. Action Type Filter
       if (actionFilter !== 'ALL') {
         const act = log.action.toUpperCase();
         if (actionFilter === 'CREATE' && !(act.includes('CREATE') || act.includes('ADD'))) return false;
@@ -50,7 +44,6 @@ const AuditLogs: React.FC = () => {
         if (actionFilter === 'DELETE' && !(act.includes('DELETE') || act.includes('REMOVE'))) return false;
       }
 
-      // 2. Search Query Filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const matches = 
@@ -78,17 +71,20 @@ const AuditLogs: React.FC = () => {
   const formatDateTime = (timestamp: string) => {
     try {
       return new Date(timestamp).toLocaleString('en-IN', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
       });
     } catch (e) {
       return timestamp;
     }
   };
+
+  const actionOptions = [
+    { value: 'ALL', label: 'All Actions' },
+    { value: 'CREATE', label: 'Create / Add' },
+    { value: 'UPDATE', label: 'Update / Edit' },
+    { value: 'DELETE', label: 'Delete / Remove' }
+  ];
 
   if (loading) {
     return (
@@ -112,7 +108,6 @@ const AuditLogs: React.FC = () => {
         </div>
       </header>
 
-      {/* Filter Toolbar */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative group flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
@@ -133,20 +128,12 @@ const AuditLogs: React.FC = () => {
           )}
         </div>
         
-        <div className="relative min-w-[200px]">
-           <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-           <select 
-             value={actionFilter}
-             onChange={(e) => setActionFilter(e.target.value)}
-             className="w-full appearance-none pl-12 pr-10 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-sm font-bold text-slate-700 cursor-pointer shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all"
-           >
-             <option value="ALL">All Actions</option>
-             <option value="CREATE">Create / Add</option>
-             <option value="UPDATE">Update / Edit</option>
-             <option value="DELETE">Delete / Remove</option>
-           </select>
-           <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
-        </div>
+        <CustomSelect 
+          value={actionFilter}
+          onChange={setActionFilter}
+          options={actionOptions}
+          icon={<Filter size={18} />}
+        />
       </div>
 
       <div className="glass-panel rounded-[32px] overflow-hidden min-h-[500px]">
