@@ -146,6 +146,33 @@ export const api = {
       });
       return handleResponse<Product>(response);
     },
+
+    /**
+     * Update an existing product
+     * @param id Product UUID
+     * @param product Updated data
+     * @returns Updated Product
+     */
+    update: async (id: string, product: { name: string; brand: string; mrp: number }): Promise<Product> => {
+      const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(product),
+      });
+      return handleResponse<Product>(response);
+    },
+
+    /**
+     * Delete a product
+     * @param id Product UUID
+     */
+    delete: async (id: string): Promise<void> => {
+      const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      return handleResponse<void>(response);
+    }
   },
 
   /**
