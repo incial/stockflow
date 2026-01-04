@@ -13,4 +13,5 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     List<AuditLog> findByUserIdOrderByTimestampDesc(UUID userId);
     List<AuditLog> findByActionOrderByTimestampDesc(String action);
     List<AuditLog> findByTimestampBetweenOrderByTimestampDesc(LocalDateTime start, LocalDateTime end);
+    List<AuditLog> findAllByOrderByTimestampDesc();
 }
