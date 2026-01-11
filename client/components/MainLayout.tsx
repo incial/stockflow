@@ -36,7 +36,14 @@ const LayoutContent: React.FC<MainLayoutProps> = ({ user, onLogout, children }) 
                 >
                   <Menu size={24} />
                 </button>
-                <span className="font-bold text-slate-800 tracking-tight">StockFlow</span>
+                <div className="flex items-center gap-2">
+                  <img 
+                    src="logo.png" 
+                    alt="Logo" 
+                    className="w-8 h-8 object-contain rounded-lg" 
+                  />
+                  <span className="font-black text-slate-800 tracking-tight">MEOWENDI</span>
+                </div>
              </div>
              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
                 {user.name.charAt(0)}

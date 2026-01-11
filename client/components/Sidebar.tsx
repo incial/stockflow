@@ -8,7 +8,6 @@ import {
   FileText, 
   LogOut, 
   PackageSearch, 
-  Store, 
   ChevronLeft, 
   ChevronRight,
   PackageMinus,
@@ -59,12 +58,16 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
         {/* Header / Logo */}
         <div className={`h-24 flex items-center ${isSidebarOpen ? 'justify-between px-6' : 'justify-center'} border-b border-white/5`}>
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="bg-gradient-to-br from-indigo-500 to-violet-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20 shrink-0">
-              <Store className="text-white" size={24} />
+            <div className="shrink-0 transition-transform duration-300 hover:scale-105">
+              <img 
+                src="logo.png" 
+                alt="Logo" 
+                className="w-12 h-12 object-contain rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 shadow-sm" 
+              />
             </div>
             {isSidebarOpen && (
               <div className="transition-opacity duration-300">
-                <h1 className="font-bold text-white text-xl tracking-tight">StockFlow</h1>
+                <h1 className="font-black text-white text-xl tracking-tight">MEOWENDI</h1>
                 <div className="flex items-center gap-1">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
                     <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Live</span>

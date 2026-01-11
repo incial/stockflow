@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { Lock, Mail, Store, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Lock, Mail, ArrowRight, AlertTriangle } from 'lucide-react';
 import { api } from '../services/api';
 
 interface LoginProps {
@@ -49,11 +49,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
         
         <div className="relative z-10 w-full h-full flex flex-col justify-between p-12 xl:p-16 text-white">
-           <div className="flex items-center gap-3">
-              <div className="bg-white/20 backdrop-blur-md p-2.5 rounded-xl border border-white/20 shadow-lg">
-                <Store className="text-white" size={24} />
-              </div>
-              <span className="text-xl font-bold tracking-tight text-white drop-shadow-md">StockFlow</span>
+           <div className="flex items-center gap-4">
+              <img 
+                src="logo.png" 
+                alt="MEOWENDI Logo" 
+                className="w-16 h-16 object-contain rounded-2xl bg-white/5 backdrop-blur-sm shadow-xl border border-white/10" 
+              />
+              <span className="text-3xl font-black tracking-tight text-white drop-shadow-md">MEOWENDI</span>
            </div>
            
            <div className="max-w-lg">
@@ -85,10 +87,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           
           {/* Mobile Logo */}
           <div className="flex items-center gap-3 lg:hidden mb-8">
-            <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-200">
-              <Store className="text-white" size={20} />
-            </div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">StockFlow</h1>
+            <img 
+              src="logo.png" 
+              alt="MEOWENDI Logo" 
+              className="w-12 h-12 object-contain rounded-xl" 
+            />
+            <h1 className="text-2xl font-black tracking-tight text-slate-900">MEOWENDI</h1>
           </div>
 
           <div className="mb-8">
@@ -194,7 +198,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         
         {/* Subtle footer */}
         <div className="absolute bottom-4 text-center text-[10px] text-slate-300 w-full">
-          © {new Date().getFullYear()} StockFlow. Enterprise Edition.
+          © {new Date().getFullYear()} MEOWENDI. Enterprise Edition.
         </div>
       </div>
     </div>
