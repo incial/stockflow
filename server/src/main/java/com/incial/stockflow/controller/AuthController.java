@@ -1,5 +1,6 @@
 package com.incial.stockflow.controller;
 
+import com.incial.stockflow.dto.request.GoogleLoginRequest;
 import com.incial.stockflow.dto.request.LoginRequest;
 import com.incial.stockflow.dto.response.LoginResponse;
 import com.incial.stockflow.service.AuthService;
@@ -18,6 +19,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
+        return ResponseEntity.ok(response);
+    }
+    @PostMapping("/google-login")
+    public ResponseEntity<LoginResponse> googleLogin(@Valid @RequestBody GoogleLoginRequest request) {
+        LoginResponse response = authService.loginWithGoogle(request);
         return ResponseEntity.ok(response);
     }
 }
