@@ -185,6 +185,7 @@ const AppContent: React.FC = () => {
                     entries={entries} 
                     products={products}
                     onAddBatch={handleBatchSubmit} 
+                    onRefresh={refreshData}
                   />
                 } 
               />

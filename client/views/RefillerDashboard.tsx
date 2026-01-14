@@ -1,14 +1,16 @@
 
 import React, { useState, useMemo } from 'react';
 import { User, StockEntry, Product } from '../types';
-import { Save, Calendar, Store, Info, Plus, Trash2, PackagePlus, Layers } from 'lucide-react';
+import { Save, Calendar, Store, Info, Plus, Trash2, PackagePlus, Layers, Edit2, AlertTriangle, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { api } from '../services/api';
 
 interface RefillerDashboardProps {
   user: User;
   entries: StockEntry[];
   products: Product[];
   onAddBatch: (newEntries: StockEntry[], newProducts: Product[]) => void;
+  onRefresh: () => Promise<void>;
 }
 
 interface CustomRow {
@@ -25,12 +27,18 @@ interface CustomTable {
   rows: CustomRow[];
 }
 
-const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, onAddBatch }) => {
+const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, onAddBatch, onRefresh }) => {
   const { addToast } = useToast();
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   
   const [formData, setFormData] = useState<Record<string, { qty: string, amt: string }>>({});
   const [customTables, setCustomTables] = useState<CustomTable[]>([]);
+
+  // --- Product Management State ---
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', brand: '', mrp: '' });
 
   const productsByBrand = useMemo(() => {
     const grouped: Record<string, Product[]> = {};
@@ -52,7 +60,10 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   };
 
   const calculateBrandTotal = (brandProducts: Product[]) => {
-    return brandProducts.reduce((sum, p) => sum + (parseFloat(formData[p.id]?.amt) || 0), 0);
+    return brandProducts.reduce((sum, p) => {
+      const qty = parseFloat(formData[p.id]?.qty) || 0;
+      return sum + (qty * p.mrp);
+    }, 0);
   };
 
   // --- Handlers for Custom Tables ---
@@ -109,7 +120,11 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   };
 
   const calculateCustomTableTotal = (rows: CustomRow[]) => {
-    return rows.reduce((sum, r) => sum + (parseFloat(r.amt) || 0), 0);
+    return rows.reduce((sum, r) => {
+      const qty = parseFloat(r.qty) || 0;
+      const mrp = parseFloat(r.mrp) || 0;
+      return sum + (qty * mrp);
+    }, 0);
   };
 
   // --- SAVE ---
@@ -169,8 +184,146 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
     addToast(`Success! Saved ${newEntries.length} entries including ${newProducts.length} new products.`, "success");
   };
 
+  // --- EDIT / DELETE LOGIC ---
+  const initiateEdit = (product: Product) => {
+    setEditingProduct(product);
+    setEditForm({
+      name: product.name,
+      brand: product.brand,
+      mrp: product.mrp.toString()
+    });
+  };
+
+  const submitEdit = async () => {
+    if (!editingProduct) return;
+    try {
+      setIsProcessing(true);
+      await api.products.update(editingProduct.id, {
+        name: editForm.name,
+        brand: editForm.brand,
+        mrp: parseFloat(editForm.mrp)
+      });
+      addToast('Product updated successfully', 'success');
+      await onRefresh();
+      setEditingProduct(null);
+    } catch (error: any) {
+      addToast(error.message || 'Failed to update product', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const submitDelete = async () => {
+    if (!deletingProduct) return;
+    try {
+      setIsProcessing(true);
+      await api.products.delete(deletingProduct.id);
+      addToast('Product deleted successfully', 'success');
+      await onRefresh();
+      setDeletingProduct(null);
+    } catch (error: any) {
+      addToast(error.message || 'Failed to delete product', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-8 pb-20 relative">
+      
+      {/* --- Modals --- */}
+      {/* Edit Modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden ring-1 ring-white/20">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+               <h3 className="text-xl font-bold text-slate-800">Edit Product</h3>
+               <button onClick={() => setEditingProduct(null)} className="p-1 rounded-full hover:bg-slate-200 text-slate-400 transition-colors">
+                 <X size={20} />
+               </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Product Name</label>
+                <input 
+                  type="text" 
+                  value={editForm.name} 
+                  onChange={e => setEditForm(prev => ({...prev, name: e.target.value}))}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Brand / Category</label>
+                <input 
+                  type="text" 
+                  value={editForm.brand} 
+                  onChange={e => setEditForm(prev => ({...prev, brand: e.target.value}))}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">MRP (₹)</label>
+                <input 
+                  type="number" 
+                  value={editForm.mrp} 
+                  onChange={e => setEditForm(prev => ({...prev, mrp: e.target.value}))}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                />
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 flex gap-3 justify-end">
+              <button 
+                onClick={() => setEditingProduct(null)}
+                className="px-5 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={submitEdit}
+                disabled={isProcessing}
+                className="px-6 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:translate-y-0.5 disabled:opacity-50 flex items-center gap-2"
+              >
+                {isProcessing ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Modal */}
+      {deletingProduct && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-sm overflow-hidden ring-1 ring-white/20">
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Product?</h3>
+              <p className="text-slate-500 leading-relaxed">
+                Are you sure you want to delete <span className="font-bold text-slate-800">{deletingProduct.name}</span>? 
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="p-4 bg-slate-50 flex gap-3">
+              <button 
+                onClick={() => setDeletingProduct(null)}
+                className="flex-1 px-5 py-3 rounded-xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={submitDelete}
+                disabled={isProcessing}
+                className="flex-1 px-5 py-3 rounded-xl font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-200 transition-all active:translate-y-0.5 disabled:opacity-50"
+              >
+                {isProcessing ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
       {/* Header */}
       <header className="glass-panel p-6 rounded-[32px] flex flex-col xl:flex-row xl:items-center justify-between gap-6 sticky top-4 z-20">
         <div className="flex items-center gap-5">
@@ -212,7 +365,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
         <div className="p-2 bg-indigo-100 rounded-full shrink-0">
             <Info size={18} />
         </div>
-        <p className="mt-1 leading-relaxed">Enter quantity and cost amount for daily stock. Use <strong>"Add Category"</strong> below to create new product groups and add items that are not in the standard list.</p>
+        <p className="mt-1 leading-relaxed">Enter quantity and cost amount for daily stock. Use the <strong>Action icons</strong> to edit or delete products from the master list.</p>
       </div>
 
       {/* Standard Product Tables */}
@@ -232,11 +385,12 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                     <th className="px-8 py-5 w-40 text-center">MRP (₹)</th>
                     <th className="px-8 py-5 w-40 text-center">Stock</th>
                     <th className="px-8 py-5 w-48 text-center">Cost (₹)</th>
+                    <th className="px-8 py-5 w-24 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50/50">
                   {products.map((p, idx) => (
-                    <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr key={p.id} className="hover:bg-slate-50/80 transition-colors group">
                       <td className="px-8 py-4 text-xs text-slate-300 font-mono">{idx + 1}</td>
                       <td className="px-8 py-4 text-sm font-semibold text-slate-700">{p.name}</td>
                       <td className="px-8 py-4 text-sm text-center font-mono text-slate-500">{p.mrp.toFixed(2)}</td>
@@ -258,13 +412,32 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                           className="w-full text-center py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold text-indigo-600 transition-all focus:bg-white"
                         />
                       </td>
+                      <td className="px-8 py-4 text-center">
+                        <div className="flex items-center justify-center gap-2 opacity-30 group-hover:opacity-100 transition-opacity">
+                            <button 
+                                onClick={() => initiateEdit(p)}
+                                className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"
+                                title="Edit Product"
+                            >
+                                <Edit2 size={16} />
+                            </button>
+                            <button 
+                                onClick={() => setDeletingProduct(p)}
+                                className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                title="Delete Product"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                   <tr className="bg-gradient-to-r from-amber-50/50 to-orange-50/50">
-                    <td colSpan={4} className="px-8 py-4 text-sm font-bold text-slate-600 text-right uppercase tracking-wider text-[11px]">Total for {brand}</td>
+                    <td colSpan={4} className="px-8 py-4 text-sm font-bold text-slate-600 text-right uppercase tracking-wider text-[11px]">Total MRP Value for {brand}</td>
                     <td className="px-8 py-4 text-center text-sm font-black text-slate-800">
                       ₹{calculateBrandTotal(products).toFixed(2)}
                     </td>
+                    <td></td>
                   </tr>
                 </tbody>
               </table>
@@ -384,7 +557,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                       </button>
                     </td>
                     <td colSpan={2} className="px-8 py-5 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">
-                      Subtotal
+                      Total MRP Value
                     </td>
                     <td className="px-8 py-5 text-center text-sm font-black text-slate-800">
                       ₹{calculateCustomTableTotal(table.rows).toFixed(2)}

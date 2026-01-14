@@ -115,6 +115,21 @@ export const api = {
       });
       return handleResponse<LoginResponse>(response);
     },
+
+    /**
+     * Login with Google ID Token
+     * @param credential The JWT ID Token from Google
+     * @returns LoginResponse with token and user data
+     */
+    googleLogin: async (credential: string): Promise<LoginResponse> => {
+      const response = await fetch(`${API_BASE_URL}/auth/google-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // IMPORTANT: The backend DTO expects field name 'credential', not 'idToken'
+        body: JSON.stringify({ credential }),
+      });
+      return handleResponse<LoginResponse>(response);
+    },
   },
 
   /**
@@ -146,6 +161,33 @@ export const api = {
       });
       return handleResponse<Product>(response);
     },
+
+    /**
+     * Update an existing product
+     * @param id Product UUID
+     * @param product Updated data
+     * @returns Updated Product
+     */
+    update: async (id: string, product: { name: string; brand: string; mrp: number }): Promise<Product> => {
+      const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(product),
+      });
+      return handleResponse<Product>(response);
+    },
+
+    /**
+     * Delete a product
+     * @param id Product UUID
+     */
+    delete: async (id: string): Promise<void> => {
+      const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      return handleResponse<void>(response);
+    }
   },
 
   /**

@@ -36,4 +36,7 @@ public class User extends AuditableEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "outlet_id")
     private Outlet outlet;
+
+    private String googleId;
+    private String avatarUrl;
 }
