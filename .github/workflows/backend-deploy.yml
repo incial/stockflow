@@ -31,7 +31,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       # -----------------------------
       # Login to Amazon ECR
@@ -82,12 +82,7 @@ jobs:
               "docker pull '"$IMAGE_URI:$IMAGE_TAG"'",
               "docker stop incial-backend || true",
               "docker rm incial-backend || true",
-              "docker run -d \
-                --name incial-backend \
-                --env-file /home/ec2-user/stockflow.env \
-                --restart unless-stopped \
-                -p 8080:8080 \
-                '"$IMAGE_URI:$IMAGE_TAG"'",
+              "docker run -d --name incial-backend --env-file /home/ec2-user/stockflow.env --restart unless-stopped -p 8080:8080 '"$IMAGE_URI:$IMAGE_TAG"'",
               "sleep 10",
               "curl -f http://localhost:8080/actuator/health"
             ]'
