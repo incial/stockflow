@@ -1,0 +1,105 @@
+name: Backend Build & Deploy (ARM EC2)
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  ECR_REPO_NAME: ${{ secrets.ECR_REPO_NAME }}
+  IMAGE_TAG: ${{ github.sha }}
+  IMAGE_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPO_NAME }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # -----------------------------
+      # Checkout
+      # -----------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # -----------------------------
+      # Setup Java
+      # -----------------------------
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      # -----------------------------
+      # Build Spring Boot JAR
+      # -----------------------------
+      - name: Build Backend JAR
+        run: |
+          cd server
+          mvn clean package -DskipTests
+
+      # -----------------------------
+      # Configure AWS Credentials
+      # -----------------------------
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # -----------------------------
+      # Login to ECR
+      # -----------------------------
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # -----------------------------
+      # Enable QEMU 
+      # -----------------------------
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # -----------------------------
+      # Setup Docker Buildx
+      # -----------------------------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # -----------------------------
+      # Build & Push ARM64 Image (Cached)
+      # -----------------------------
+      - name: Build and Push Docker Image (ARM64)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE_URI }}:${{ github.sha }}
+            ${{ env.IMAGE_URI }}:latest
+          cache-from: type=registry,ref=${{ env.IMAGE_URI }}:cache
+          cache-to: type=registry,ref=${{ env.IMAGE_URI }}:cache,mode=max
+
+      # -----------------------------
+      # Deploy to EC2 via SSM
+      # -----------------------------
+      - name: Deploy to EC2 (SSM)
+        run: |
+          aws ssm send-command \
+            --region $AWS_REGION \
+            --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy backend ${{ github.sha }}" \
+            --parameters 'commands=[
+              "set -e",
+              "docker pull '"$IMAGE_URI"':'"$IMAGE_TAG"'",
+              "docker stop incial-backend || true",
+              "docker rm incial-backend || true",
+              "docker run -d --name incial-backend --env-file /home/ec2-user/stockflow.env --restart unless-stopped -p 8080:8080 '"$IMAGE_URI"':'"$IMAGE_TAG"'",
+              "sleep 10",
+              "curl -f http://localhost:8080/actuator/health"
+            ]'
