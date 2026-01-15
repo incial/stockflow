@@ -91,17 +91,46 @@ const AppContent: React.FC = () => {
     setOutlets([]);
   };
 
-  const handleBatchSubmit = async (newEntries: StockEntry[]) => {
+  const handleBatchSubmit = async (newEntries: StockEntry[], newProducts: Product[] = []) => {
     try {
       setIsGlobalLoading(true);
       
-      // Prepare payload for backend
-      if (newEntries.length === 0) return;
+      if (newEntries.length === 0) {
+        setIsGlobalLoading(false);
+        return;
+      }
+
+      // 1. Process New Products Creation First
+      const productIdMap: Record<string, string> = {}; // Maps tempId -> realId
+
+      if (newProducts.length > 0) {
+        // Create new products sequentially (or parallel) to get real IDs
+        await Promise.all(newProducts.map(async (p) => {
+          try {
+            const createdProduct = await api.products.create({
+              name: p.name,
+              brand: p.brand,
+              mrp: p.mrp
+            });
+            productIdMap[p.id] = createdProduct.id;
+          } catch (e: any) {
+            console.error(`Failed to create product ${p.name}`, e);
+            throw new Error(`Failed to create new product: ${p.name}`);
+          }
+        }));
+      }
+
+      // 2. Update entries with real Product IDs
+      const finalEntries = newEntries.map(entry => {
+        const realId = productIdMap[entry.productId] || entry.productId;
+        return { ...entry, productId: realId };
+      });
       
+      // 3. Prepare payload for backend
       const payload = {
-        outletId: currentUser?.outletId || newEntries[0].outletId,
-        entryDate: newEntries[0].entryDate,
-        items: newEntries.map(e => ({
+        outletId: currentUser?.outletId || finalEntries[0].outletId,
+        entryDate: finalEntries[0].entryDate,
+        items: finalEntries.map(e => ({
           productId: e.productId,
           quantity: e.quantity,
           amount: e.amount
@@ -115,6 +144,7 @@ const AppContent: React.FC = () => {
     } catch (error: any) {
        console.error(error);
        addToast(error.message || "Failed to save stock batch.", "error");
+    } finally {
        setIsGlobalLoading(false);
     }
   };

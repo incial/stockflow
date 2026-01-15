@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { User, StockEntry, Product } from '../types';
 import { Save, Calendar, Store, Info, Plus, Trash2, PackagePlus, Layers, Edit2, AlertTriangle, X } from 'lucide-react';
@@ -32,7 +31,12 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   
   const [formData, setFormData] = useState<Record<string, { qty: string, amt: string }>>({});
+  
+  // State for completely new categories
   const [customTables, setCustomTables] = useState<CustomTable[]>([]);
+  
+  // State for new items added to EXISTING brands
+  const [newItemsByBrand, setNewItemsByBrand] = useState<Record<string, CustomRow[]>>({});
 
   // --- Product Management State ---
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -59,11 +63,43 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
     }));
   };
 
-  const calculateBrandTotal = (brandProducts: Product[]) => {
-    return brandProducts.reduce((sum, p) => {
+  // --- Handlers for New Items in Existing Brands ---
+  const handleAddNewItemToBrand = (brand: string) => {
+    setNewItemsByBrand(prev => ({
+      ...prev,
+      [brand]: [...(prev[brand] || []), { id: `new-${Date.now()}`, name: '', mrp: '', qty: '', amt: '' }]
+    }));
+  };
+
+  const handleUpdateNewItem = (brand: string, rowId: string, field: keyof CustomRow, value: string) => {
+    setNewItemsByBrand(prev => ({
+      ...prev,
+      [brand]: (prev[brand] || []).map(r => r.id === rowId ? { ...r, [field]: value } : r)
+    }));
+  };
+
+  const handleRemoveNewItem = (brand: string, rowId: string) => {
+    setNewItemsByBrand(prev => ({
+      ...prev,
+      [brand]: (prev[brand] || []).filter(r => r.id !== rowId)
+    }));
+  };
+
+  const calculateBrandTotal = (brandProducts: Product[], brand: string) => {
+    // 1. Total from existing products
+    const existingTotal = brandProducts.reduce((sum, p) => {
       const qty = parseFloat(formData[p.id]?.qty) || 0;
       return sum + (qty * p.mrp);
     }, 0);
+
+    // 2. Total from new items added to this brand
+    const newItemsTotal = (newItemsByBrand[brand] || []).reduce((sum, r) => {
+      const qty = parseFloat(r.qty) || 0;
+      const mrp = parseFloat(r.mrp) || 0;
+      return sum + (qty * mrp);
+    }, 0);
+
+    return existingTotal + newItemsTotal;
   };
 
   // --- Handlers for Custom Tables ---
@@ -132,7 +168,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
     const newEntries: StockEntry[] = [];
     const newProducts: Product[] = [];
 
-    // 1. Process Standard Entries
+    // 1. Process Standard Entries (Existing Products)
     (Object.entries(formData) as [string, { qty: string, amt: string }][]).forEach(([productId, data]) => {
       if (data.qty && data.amt) {
         newEntries.push({
@@ -148,7 +184,32 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
       }
     });
 
-    // 2. Process Custom Tables
+    // 2. Process New Items in EXISTING Brands
+    (Object.entries(newItemsByBrand) as [string, CustomRow[]][]).forEach(([brand, rows]) => {
+      rows.forEach(row => {
+        if (row.name && row.qty && row.amt) {
+          const newProductId = `p-new-${Math.random().toString(36).substr(2, 9)}`;
+          newProducts.push({
+            id: newProductId,
+            name: row.name,
+            brand: brand,
+            mrp: parseFloat(row.mrp) || 0
+          });
+          newEntries.push({
+            id: `s-${Math.random().toString(36).substr(2, 9)}`,
+            outletId: user.outletId!,
+            productId: newProductId,
+            quantity: parseFloat(row.qty),
+            amount: parseFloat(row.amt),
+            entryDate,
+            enteredBy: user.id,
+            createdAt: new Date().toISOString()
+          });
+        }
+      });
+    });
+
+    // 3. Process Custom Tables (New Categories + New Products)
     customTables.forEach(table => {
       table.rows.forEach(row => {
         if (row.name && row.qty && row.amt) {
@@ -181,7 +242,8 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
     onAddBatch(newEntries, newProducts);
     setFormData({});
     setCustomTables([]);
-    addToast(`Success! Saved ${newEntries.length} entries including ${newProducts.length} new products.`, "success");
+    setNewItemsByBrand({});
+    addToast(`Success! Processing ${newEntries.length} entries...`, "success");
   };
 
   // --- EDIT / DELETE LOGIC ---
@@ -222,7 +284,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
       await onRefresh();
       setDeletingProduct(null);
     } catch (error: any) {
-      addToast(error.message || 'Failed to delete product', 'error');
+      addToast('Failed to delete product : This product has entries associated with it.');
     } finally {
       setIsProcessing(false);
     }
@@ -365,7 +427,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
         <div className="p-2 bg-indigo-100 rounded-full shrink-0">
             <Info size={18} />
         </div>
-        <p className="mt-1 leading-relaxed">Enter quantity and cost amount for daily stock. Use the <strong>Action icons</strong> to edit or delete products from the master list.</p>
+        <p className="mt-1 leading-relaxed">Enter quantity and cost amount for daily stock. You can also add new items directly to existing categories.</p>
       </div>
 
       {/* Standard Product Tables */}
@@ -389,6 +451,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50/50">
+                  {/* Existing Products */}
                   {products.map((p, idx) => (
                     <tr key={p.id} className="hover:bg-slate-50/80 transition-colors group">
                       <td className="px-8 py-4 text-xs text-slate-300 font-mono">{idx + 1}</td>
@@ -432,10 +495,76 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                       </td>
                     </tr>
                   ))}
-                  <tr className="bg-gradient-to-r from-amber-50/50 to-orange-50/50">
+                  
+                  {/* New Items Rows for this Brand */}
+                  {(newItemsByBrand[brand] || []).map((row, idx) => (
+                    <tr key={row.id} className="bg-indigo-50/30 hover:bg-indigo-50/60 transition-colors">
+                      <td className="px-8 py-4 text-xs text-indigo-300 font-mono">+</td>
+                      <td className="px-8 py-4">
+                        <input 
+                          type="text"
+                          placeholder="New Item Name"
+                          value={row.name}
+                          onChange={(e) => handleUpdateNewItem(brand, row.id, 'name', e.target.value)}
+                          className="w-full bg-transparent border-b border-indigo-200 focus:border-indigo-500 outline-none text-sm font-semibold text-indigo-900 placeholder-indigo-300 py-1"
+                          autoFocus
+                        />
+                      </td>
+                      <td className="px-8 py-4">
+                        <input 
+                          type="number"
+                          placeholder="MRP"
+                          value={row.mrp}
+                          onChange={(e) => handleUpdateNewItem(brand, row.id, 'mrp', e.target.value)}
+                          className="w-full text-center bg-transparent border-b border-indigo-200 focus:border-indigo-500 outline-none text-sm font-mono text-indigo-900 placeholder-indigo-300 py-1"
+                        />
+                      </td>
+                      <td className="px-8 py-4">
+                        <input 
+                          type="number"
+                          placeholder="Qty"
+                          value={row.qty}
+                          onChange={(e) => handleUpdateNewItem(brand, row.id, 'qty', e.target.value)}
+                          className="w-full text-center py-2.5 bg-white border border-indigo-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm font-bold transition-all"
+                        />
+                      </td>
+                      <td className="px-8 py-4">
+                        <input 
+                          type="number"
+                          placeholder="Cost"
+                          value={row.amt}
+                          onChange={(e) => handleUpdateNewItem(brand, row.id, 'amt', e.target.value)}
+                          className="w-full text-center py-2.5 bg-white border border-indigo-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm font-bold text-indigo-600 transition-all"
+                        />
+                      </td>
+                      <td className="px-8 py-4 text-center">
+                        <button 
+                           onClick={() => handleRemoveNewItem(brand, row.id)}
+                           className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        >
+                           <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {/* Add New Item Button Row */}
+                  <tr>
+                     <td colSpan={6} className="px-8 py-2">
+                        <button 
+                           onClick={() => handleAddNewItemToBrand(brand)}
+                           className="flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-4 py-2 rounded-lg transition-colors w-fit"
+                        >
+                           <Plus size={14} /> Add New Item to {brand}
+                        </button>
+                     </td>
+                  </tr>
+
+                  {/* Total Row */}
+                  <tr className="bg-gradient-to-r from-amber-50/50 to-orange-50/50 border-t border-amber-100/50">
                     <td colSpan={4} className="px-8 py-4 text-sm font-bold text-slate-600 text-right uppercase tracking-wider text-[11px]">Total MRP Value for {brand}</td>
                     <td className="px-8 py-4 text-center text-sm font-black text-slate-800">
-                      ₹{calculateBrandTotal(products).toFixed(2)}
+                      ₹{calculateBrandTotal(products, brand).toFixed(2)}
                     </td>
                     <td></td>
                   </tr>
