@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { User, StockEntry, StockOutEntry, Product } from '../types';
 import { getAvailableStock } from '../utils/calculations';

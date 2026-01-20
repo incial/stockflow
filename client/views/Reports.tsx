@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { StockEntry, Product, EnrichedStockEntry, Outlet } from '../types';
 import { calculateEntryMetrics } from '../utils/calculations';
