@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { User } from '../types';
-import { Lock, Mail, ArrowRight, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Lock, Mail, ArrowRight, AlertTriangle } from 'lucide-react';
 import { api } from '../services/api';
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 
@@ -35,7 +34,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       setIsLoading(true);
       setError('');
       try {
-        // Call the backend endpoint /api/v1/auth/google-login
         const response = await api.auth.googleLogin(credentialResponse.credential);
         onLogin(response.user, response.token);
       } catch (err: any) {
@@ -52,6 +50,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleGoogleFailure = () => {
     setError('Google login was unsuccessful. Please check your network or try again.');
   };
+
+  const isGoogleConfigured = true;
 
   return (
     <div className="h-screen w-full flex bg-white font-sans text-slate-900 overflow-hidden">
@@ -190,17 +190,23 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             {/* Google OAuth Component */}
             <div className="w-full flex flex-col items-center justify-center gap-2">
               <div className="w-full flex justify-center min-h-[40px]">
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={handleGoogleFailure}
-                  theme="outline"
-                  size="large"
-                  width="400"
-                  // useOneTap is intentionally omitted to prevent FedCM NotAllowedError
-                />
+                {isGoogleConfigured ? (
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleFailure}
+                    theme="outline"
+                    size="large"
+                    width="400"
+                    // useOneTap is intentionally omitted to prevent FedCM NotAllowedError
+                  />
+                ) : (
+                  <div className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                    <p className="text-xs text-slate-400 font-medium mb-1">Google Login Disabled</p>
+                    <p className="text-[10px] text-slate-300">Client ID not configured in constants.tsx</p>
+                  </div>
+                )}
               </div>
               
-              {/* Development Hint - Visible only if CLIENT_ID is still default */}
               <div className="text-[10px] text-slate-400 text-center px-4">
                  By signing in, you agree to our Terms of Service and Privacy Policy.
               </div>
