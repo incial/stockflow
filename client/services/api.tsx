@@ -4,9 +4,9 @@ import { StockEntry, StockOutEntry, Product, Outlet, User, StockOutReason, Audit
 // ============================================
 // Configuration
 // ============================================
-//const API_BASE_URL = import.meta.env.API_BASE_URL || '/api/v1';
+const API_BASE_URL = import.meta.env.API_BASE_URL || '/api/v1';
 
-const API_BASE_URL = 'http://localhost:8080/api/v1';
+//const API_BASE_URL = 'http://localhost:8080/api/v1';
 
 // ============================================
 // Types
