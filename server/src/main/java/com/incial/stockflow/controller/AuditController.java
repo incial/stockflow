@@ -19,10 +19,6 @@ public class AuditController {
 
     private final AuditService auditService;
 
-    /**
-     * Get all audit logs (ADMIN only)
-     * Returns all audit logs ordered by timestamp descending (newest first)
-     */
     @GetMapping
     public ResponseEntity<List<AuditLog>> getAllAuditLogs(
             @AuthenticationPrincipal User currentUser) {

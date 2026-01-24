@@ -22,10 +22,6 @@ public class StockInController {
 
     private final StockInService stockInService;
 
-    // -------------------------------------------------
-    // GET STOCK ENTRIES
-    // -------------------------------------------------
-
     @GetMapping
     public ResponseEntity<List<StockEntryResponse>> getStockEntries(
             @RequestParam(required = false) UUID outletId,
@@ -35,10 +31,6 @@ public class StockInController {
                 stockInService.getStockEntries(outletId, currentUser)
         );
     }
-
-    // -------------------------------------------------
-    // ADD STOCK IN BATCH
-    // -------------------------------------------------
 
     @PostMapping("/batch")
     public ResponseEntity<StockInBatchResponse> addBatch(
