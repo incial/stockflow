@@ -3,6 +3,7 @@ import { User, StockEntry, Product } from '../types';
 import { Save, Calendar, Store, Info, Plus, Trash2, PackagePlus, Layers, Edit2, AlertTriangle, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
+import ConfirmationModal, { ConfirmationItem } from '../components/ConfirmationModal';
 
 interface RefillerDashboardProps {
   user: User;
@@ -43,6 +44,10 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', brand: '', mrp: '' });
+
+  // --- Confirmation Modal State ---
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationItems, setConfirmationItems] = useState<ConfirmationItem[]>([]);
 
   const productsByBrand = useMemo(() => {
     const grouped: Record<string, Product[]> = {};
@@ -165,6 +170,68 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
 
   // --- SAVE ---
   const handleSave = () => {
+    const confirmItems: ConfirmationItem[] = [];
+
+    // 1. Process Standard Entries (Existing Products)
+    (Object.entries(formData) as [string, { qty: string, amt: string }][]).forEach(([productId, data]) => {
+      if (data.qty && data.amt) {
+        const product = products.find(p => p.id === productId);
+        if (product) {
+          confirmItems.push({
+            id: productId,
+            name: product.name,
+            brand: product.brand,
+            mrp: product.mrp,
+            quantity: parseFloat(data.qty),
+            amount: parseFloat(data.amt)
+          });
+        }
+      }
+    });
+
+    // 2. Process New Items in EXISTING Brands
+    (Object.entries(newItemsByBrand) as [string, CustomRow[]][]).forEach(([brand, rows]) => {
+      rows.forEach(row => {
+        if (row.name && row.qty && row.amt) {
+          confirmItems.push({
+            id: row.id,
+            name: row.name,
+            brand: brand,
+            mrp: parseFloat(row.mrp) || 0,
+            quantity: parseFloat(row.qty),
+            amount: parseFloat(row.amt)
+          });
+        }
+      });
+    });
+
+    // 3. Process Custom Tables (New Categories + New Products)
+    customTables.forEach(table => {
+      table.rows.forEach(row => {
+        if (row.name && row.qty && row.amt) {
+          confirmItems.push({
+            id: row.id,
+            name: row.name,
+            brand: table.title || 'Uncategorized',
+            mrp: parseFloat(row.mrp) || 0,
+            quantity: parseFloat(row.qty),
+            amount: parseFloat(row.amt)
+          });
+        }
+      });
+    });
+
+    if (confirmItems.length === 0) {
+      addToast("Please enter at least one valid stock entry before submitting.", "error");
+      return;
+    }
+
+    // Show confirmation modal
+    setConfirmationItems(confirmItems);
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmSave = () => {
     const newEntries: StockEntry[] = [];
     const newProducts: Product[] = [];
 
@@ -234,15 +301,11 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
       });
     });
 
-    if (newEntries.length === 0) {
-      addToast("Please enter at least one valid stock entry before submitting.", "error");
-      return;
-    }
-
     onAddBatch(newEntries, newProducts);
     setFormData({});
     setCustomTables([]);
     setNewItemsByBrand({});
+    setShowConfirmation(false);
     addToast(`Success! Processing ${newEntries.length} entries...`, "success");
   };
 
@@ -294,6 +357,18 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
     <div className="space-y-8 pb-20 relative">
       
       {/* --- Modals --- */}
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmation}
+        onClose={() => setShowConfirmation(false)}
+        onConfirm={handleConfirmSave}
+        items={confirmationItems}
+        title="Confirm Stock Entry"
+        subtitle="Please review the items you're about to submit"
+        confirmButtonText="Submit Batch"
+        confirmButtonColor="indigo"
+      />
+
       {/* Edit Modal */}
       {editingProduct && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">

@@ -3,6 +3,7 @@ import { User, StockEntry, StockOutEntry, Product } from '../types';
 import { getAvailableStock } from '../utils/calculations';
 import { Save, Calendar, PackageMinus, Info, Layers, PackageOpen, Search, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import ConfirmationModal, { ConfirmationItem } from '../components/ConfirmationModal';
 
 interface StockOutProps {
   user: User;
@@ -24,6 +25,10 @@ const StockOut: React.FC<StockOutProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   
   const [formData, setFormData] = useState<Record<string, string>>({});
+
+  // --- Confirmation Modal State ---
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationItems, setConfirmationItems] = useState<ConfirmationItem[]>([]);
 
   const productsByBrand = useMemo(() => {
     const grouped: Record<string, Product[]> = {};
@@ -60,18 +65,51 @@ const StockOut: React.FC<StockOutProps> = ({
   };
 
   const handleSave = () => {
-    const newStockOuts: StockOutEntry[] = [];
+    const confirmItems: ConfirmationItem[] = [];
     let error = '';
 
     (Object.entries(formData) as [string, string][]).forEach(([productId, qtyStr]) => {
       const qty = parseFloat(qtyStr);
       if (qty > 0) {
         const available = getAvailableStock(productId, user.outletId!, stockEntries, stockOutEntries);
+        const product = products.find(p => p.id === productId);
         if (qty > available) {
-          const product = products.find(p => p.id === productId);
           error = `Cannot remove ${qty} of ${product?.name}. Only ${available} available.`;
           return;
         }
+        if (product) {
+          confirmItems.push({
+            id: productId,
+            name: product.name,
+            brand: product.brand,
+            mrp: product.mrp,
+            quantity: qty,
+            amount: qty * product.mrp // For stock out, amount is qty * mrp
+          });
+        }
+      }
+    });
+
+    if (error) {
+      addToast(error, "error");
+      return;
+    }
+    if (confirmItems.length === 0) {
+      addToast("Please enter at least one quantity to remove.", "error");
+      return;
+    }
+
+    // Show confirmation modal
+    setConfirmationItems(confirmItems);
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmStockOut = () => {
+    const newStockOuts: StockOutEntry[] = [];
+
+    (Object.entries(formData) as [string, string][]).forEach(([productId, qtyStr]) => {
+      const qty = parseFloat(qtyStr);
+      if (qty > 0) {
         newStockOuts.push({
           id: `so-${Math.random().toString(36).substr(2, 9)}`,
           outletId: user.outletId!,
@@ -85,22 +123,26 @@ const StockOut: React.FC<StockOutProps> = ({
       }
     });
 
-    if (error) {
-      addToast(error, "error");
-      return;
-    }
-    if (newStockOuts.length === 0) {
-      addToast("Please enter at least one quantity to remove.", "error");
-      return;
-    }
-
     onAddStockOut(newStockOuts);
     setFormData({});
+    setShowConfirmation(false);
     addToast(`Successfully recorded ${newStockOuts.length} stock out entries.`, "success");
   };
 
   return (
     <div className="space-y-8 pb-20">
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmation}
+        onClose={() => setShowConfirmation(false)}
+        onConfirm={handleConfirmStockOut}
+        items={confirmationItems}
+        title="Confirm Stock Out"
+        subtitle="Please review the items you're about to remove"
+        confirmButtonText="Confirm Removal"
+        confirmButtonColor="rose"
+      />
+
       {/* Header */}
       <header className="glass-panel p-6 rounded-[32px] flex flex-col xl:flex-row xl:items-center justify-between gap-6 sticky top-4 z-20">
         <div className="flex items-center gap-5">
