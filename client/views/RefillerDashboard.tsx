@@ -502,7 +502,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
         <div className="p-2 bg-indigo-100 rounded-full shrink-0">
             <Info size={18} />
         </div>
-        <p className="mt-1 leading-relaxed">Enter quantity and cost amount for daily stock. You can also add new items directly to existing categories.</p>
+        <p className="mt-1 leading-relaxed">Enter quantity and <strong>total cost</strong> for the entire stock quantity. Total cost should be less than (Quantity × MRP) to ensure profit.</p>
       </div>
 
       {/* Standard Product Tables */}
@@ -521,7 +521,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                     <th className="px-8 py-5 min-w-[200px]">Item Name</th>
                     <th className="px-8 py-5 w-40 text-center">MRP (₹)</th>
                     <th className="px-8 py-5 w-40 text-center">Stock</th>
-                    <th className="px-8 py-5 w-48 text-center">Cost (₹)</th>
+                    <th className="px-8 py-5 w-48 text-center">Total Cost (₹)</th>
                     <th className="px-8 py-5 w-24 text-center">Actions</th>
                   </tr>
                 </thead>
@@ -606,7 +606,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                       <td className="px-8 py-4">
                         <input 
                           type="number"
-                          placeholder="Cost"
+                          placeholder="Total Cost"
                           value={row.amt}
                           onChange={(e) => handleUpdateNewItem(brand, row.id, 'amt', e.target.value)}
                           className="w-full text-center py-2.5 bg-white border border-indigo-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm font-bold text-indigo-600 transition-all"
@@ -695,7 +695,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                     <th className="px-8 py-5 min-w-[200px]">Item Name</th>
                     <th className="px-8 py-5 w-40 text-center">MRP (₹)</th>
                     <th className="px-8 py-5 w-40 text-center">Stock</th>
-                    <th className="px-8 py-5 w-48 text-center">Cost (₹)</th>
+                    <th className="px-8 py-5 w-48 text-center">Total Cost (₹)</th>
                     <th className="px-8 py-5 w-12"></th>
                   </tr>
                 </thead>
@@ -733,7 +733,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                       <td className="px-8 py-3">
                         <input 
                           type="number"
-                          placeholder="0.00"
+                          placeholder="Total Cost"
                           value={row.amt}
                           onChange={(e) => updateRowData(table.id, row.id, 'amt', e.target.value)}
                           className="w-full text-center py-2 bg-white border border-slate-200 rounded-xl outline-none text-sm font-bold text-indigo-600 focus:border-indigo-500 transition-all"

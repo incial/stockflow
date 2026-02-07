@@ -36,7 +36,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   if (!isOpen) return null;
 
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
+  const totalCost = items.reduce((sum, item) => sum + item.amount, 0);
+  const totalMrpValue = items.reduce((sum, item) => sum + (item.mrp * item.quantity), 0);
 
   // Group items by brand
   const itemsByBrand = items.reduce((acc, item) => {
@@ -91,7 +92,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
         {/* Summary Stats */}
         <div className="p-6 bg-gradient-to-r from-slate-50/50 to-slate-100/30 border-b border-slate-100 shrink-0">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
               <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Items</div>
               <div className="text-2xl font-black text-slate-800">{items.length}</div>
@@ -101,8 +102,12 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
               <div className="text-2xl font-black text-slate-800">{totalQuantity}</div>
             </div>
             <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Amount</div>
-              <div className="text-2xl font-black text-slate-800">₹{totalAmount.toFixed(2)}</div>
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total MRP Value</div>
+              <div className="text-2xl font-black text-slate-800">₹{totalMrpValue.toFixed(2)}</div>
+            </div>
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Cost</div>
+              <div className="text-2xl font-black text-slate-800">₹{totalCost.toFixed(2)}</div>
             </div>
           </div>
         </div>
@@ -110,7 +115,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
         {/* Items List - Scrollable */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {(Object.entries(itemsByBrand) as [string, ConfirmationItem[]][]).map(([brand, brandItems]) => {
-            const brandTotal = brandItems.reduce((sum, item) => sum + item.amount, 0);
+            const brandTotalCost = brandItems.reduce((sum, item) => sum + item.amount, 0);
+            const brandTotalMrp = brandItems.reduce((sum, item) => sum + (item.mrp * item.quantity), 0);
             return (
               <div key={brand} className="glass-panel rounded-[20px] overflow-hidden">
                 <div className="bg-slate-900/5 px-6 py-4 flex items-center justify-between border-b border-white/10">
@@ -118,8 +124,9 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                     <Package size={16} className="text-slate-500" />
                     <span className="text-slate-800 font-bold tracking-wide">{brand}</span>
                   </div>
-                  <div className="text-sm font-bold text-slate-600">
-                    ₹{brandTotal.toFixed(2)}
+                  <div className="flex items-center gap-6 text-sm font-bold text-slate-600">
+                    <span className="text-xs text-slate-500">Total MRP: <span className="text-slate-700">₹{brandTotalMrp.toFixed(2)}</span></span>
+                    <span className="text-xs text-slate-500">Total Cost: <span className="text-slate-700">₹{brandTotalCost.toFixed(2)}</span></span>
                   </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -127,10 +134,11 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                     <thead>
                       <tr className="border-b border-slate-100 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                         <th className="px-6 py-3 w-12">#</th>
-                        <th className="px-6 py-3 min-w-[200px]">Item Name</th>
-                        <th className="px-6 py-3 w-32 text-center">MRP (₹)</th>
-                        <th className="px-6 py-3 w-32 text-center">Quantity</th>
-                        <th className="px-6 py-3 w-40 text-right">Amount (₹)</th>
+                        <th className="px-6 py-3 min-w-[180px]">Item Name</th>
+                        <th className="px-6 py-3 w-28 text-center">MRP (₹)</th>
+                        <th className="px-6 py-3 w-28 text-center">Quantity</th>
+                        <th className="px-6 py-3 w-32 text-right">Total MRP (₹)</th>
+                        <th className="px-6 py-3 w-32 text-right">Total Cost (₹)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50/50">
@@ -145,6 +153,9 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                             <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${colors.badge} border`}>
                               {item.quantity} units
                             </span>
+                          </td>
+                          <td className="px-6 py-3 text-sm text-right font-mono text-emerald-700">
+                            ₹{(item.mrp * item.quantity).toFixed(2)}
                           </td>
                           <td className="px-6 py-3 text-sm text-right font-bold text-slate-800">
                             ₹{item.amount.toFixed(2)}
