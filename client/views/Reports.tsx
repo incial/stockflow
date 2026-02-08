@@ -10,6 +10,7 @@ interface ReportsProps {
   entries: StockEntry[];
   products: Product[];
   outlets: Outlet[];
+  refreshData?: () => Promise<void>;
 }
 
 interface BatchGroup {
@@ -27,11 +28,12 @@ interface ReportDataState {
   sortedDates: string[];
 }
 
-const Reports: React.FC<ReportsProps> = ({ entries, products, outlets }) => {
+const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, refreshData }) => {
   const [filterOutlet, setFilterOutlet] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
   const [editingBatchName, setEditingBatchName] = useState('');
+  const [localBatchUpdates, setLocalBatchUpdates] = useState<Record<string, { batchName?: string; isChecked?: boolean }>>({});
   const { addToast } = useToast();
 
   const reportData = useMemo<ReportDataState>(() => {
@@ -70,15 +72,21 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets }) => {
 
     // Convert to array and sort by creation time (newest first)
     const batches: BatchGroup[] = Object.entries(batchMap)
-      .map(([createdAt, entries]) => ({
-        batchId: createdAt,
-        entries,
-        entryDate: entries[0]?.entryDate || '',
-        createdAt,
-        batchNumber: 0, // Will be assigned per date
-        batchName: entries[0]?.batchName, // Get from first entry (all entries in batch have same name)
-        isChecked: entries[0]?.isChecked || false // Get from first entry
-      }))
+      .map(([createdAt, entries]) => {
+        const batchId = createdAt;
+        const localUpdate = localBatchUpdates[batchId];
+        
+        return {
+          batchId,
+          entries,
+          entryDate: entries[0]?.entryDate || '',
+          createdAt,
+          batchNumber: 0, // Will be assigned per date
+          // Apply local updates if they exist, otherwise use data from entries
+          batchName: localUpdate?.batchName !== undefined ? localUpdate.batchName : entries[0]?.batchName,
+          isChecked: localUpdate?.isChecked !== undefined ? localUpdate.isChecked : (entries[0]?.isChecked || false)
+        };
+      })
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
     // Group batches by date
@@ -99,7 +107,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets }) => {
     const sortedDates = Object.keys(batchesByDate).sort().reverse();
 
     return { batchesByDate, sortedDates };
-  }, [entries, products, outlets, filterOutlet]);
+  }, [entries, products, outlets, filterOutlet, localBatchUpdates]);
 
   useEffect(() => {
     if (reportData.sortedDates.length > 0 && !selectedDate) {
@@ -120,12 +128,33 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets }) => {
 
   const handleSaveBatchName = async (batchId: string) => {
     try {
+      // Optimistic update
+      setLocalBatchUpdates(prev => ({
+        ...prev,
+        [batchId]: { ...prev[batchId], batchName: editingBatchName }
+      }));
+      setEditingBatchId(null);
+      
       await api.stockIn.updateBatch(batchId, editingBatchName);
       addToast('Batch name updated successfully', 'success');
-      setEditingBatchId(null);
-      // Trigger re-fetch by updating a dummy state or use a callback
-      window.location.reload(); // Simple refresh for now
+      
+      // Refresh data from backend to ensure consistency
+      if (refreshData) {
+        await refreshData();
+        // Clear local update after backend sync
+        setLocalBatchUpdates(prev => {
+          const updated = { ...prev };
+          delete updated[batchId];
+          return updated;
+        });
+      }
     } catch (error: any) {
+      // Revert optimistic update on error
+      setLocalBatchUpdates(prev => {
+        const updated = { ...prev };
+        delete updated[batchId];
+        return updated;
+      });
       addToast(error.message || 'Failed to update batch name', 'error');
     }
   };
@@ -137,10 +166,32 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets }) => {
 
   const handleToggleChecked = async (batchId: string, currentChecked: boolean) => {
     try {
+      // Optimistic update
+      setLocalBatchUpdates(prev => ({
+        ...prev,
+        [batchId]: { ...prev[batchId], isChecked: !currentChecked }
+      }));
+      
       await api.stockIn.updateBatch(batchId, undefined, !currentChecked);
       addToast('Batch status updated', 'success');
-      window.location.reload(); // Simple refresh for now
+      
+      // Refresh data from backend to ensure consistency
+      if (refreshData) {
+        await refreshData();
+        // Clear local update after backend sync
+        setLocalBatchUpdates(prev => {
+          const updated = { ...prev };
+          delete updated[batchId];
+          return updated;
+        });
+      }
     } catch (error: any) {
+      // Revert optimistic update on error
+      setLocalBatchUpdates(prev => {
+        const updated = { ...prev };
+        delete updated[batchId];
+        return updated;
+      });
       addToast(error.message || 'Failed to update batch status', 'error');
     }
   };
