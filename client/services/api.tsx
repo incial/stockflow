@@ -71,9 +71,27 @@ const handleResponse = async <T,>(response: Response): Promise<T> => {
 
   // Handle success
   if (response.ok) {
-    // Some endpoints might return empty body on success (like 201 or 204)
+    // Handle 204 No Content
     if (response.status === 204) return {} as T;
-    return response.json();
+    
+    // Check if response has content before trying to parse JSON
+    const contentType = response.headers.get('content-type');
+    const contentLength = response.headers.get('content-length');
+    
+    // If no content-type or content-length is 0, return empty object
+    if (!contentType || contentLength === '0') {
+      return {} as T;
+    }
+    
+    // Only parse JSON if content-type indicates JSON
+    if (contentType.includes('application/json')) {
+      // Use text() first to check if body is empty
+      const text = await response.text();
+      return text ? JSON.parse(text) : {} as T;
+    }
+    
+    // For other content types, return empty object
+    return {} as T;
   }
 
   // Handle errors
@@ -239,6 +257,21 @@ export const api = {
         body: JSON.stringify(payload),
       });
       return handleResponse<BatchResponse<StockEntry>>(response);
+    },
+
+    /**
+     * Update batch metadata (name and checked status)
+     * @param batchId Batch ID to update
+     * @param batchName Optional custom name for the batch
+     * @param isChecked Optional checked status
+     */
+    updateBatch: async (batchId: string, batchName?: string, isChecked?: boolean): Promise<void> => {
+      const response = await fetch(`${API_BASE_URL}/stock-in/batch`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({ batchId, batchName, isChecked }),
+      });
+      return handleResponse<void>(response);
     },
   },
 

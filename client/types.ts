@@ -35,6 +35,8 @@ export interface StockEntry {
   enteredBy: string;
   createdAt: string;
   batchId?: string; // UUID linking entries submitted together
+  batchName?: string; // Custom name assigned by admin
+  isChecked?: boolean; // Checked status for admin review
   additionalData?: Record<string, string | number>; // Dynamic fields
 }
 

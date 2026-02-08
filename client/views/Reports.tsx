@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { StockEntry, Product, EnrichedStockEntry, Outlet } from '../types';
 import { calculateEntryMetrics } from '../utils/calculations';
-import { FileDown, CalendarDays, Filter } from 'lucide-react';
+import { FileDown, CalendarDays, Filter, Edit2, Check, X } from 'lucide-react';
 import { CustomSelect } from '../components/CustomSelect';
+import { api } from '../services/api';
+import { useToast } from '../context/ToastContext';
 
 interface ReportsProps {
   entries: StockEntry[];
@@ -16,6 +18,8 @@ interface BatchGroup {
   entryDate: string;
   createdAt: string;
   batchNumber: number;
+  batchName?: string;
+  isChecked?: boolean;
 }
 
 interface ReportDataState {
@@ -26,6 +30,9 @@ interface ReportDataState {
 const Reports: React.FC<ReportsProps> = ({ entries, products, outlets }) => {
   const [filterOutlet, setFilterOutlet] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
+  const [editingBatchName, setEditingBatchName] = useState('');
+  const { addToast } = useToast();
 
   const reportData = useMemo<ReportDataState>(() => {
     // Filter entries by outlet if needed
@@ -68,7 +75,9 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets }) => {
         entries,
         entryDate: entries[0]?.entryDate || '',
         createdAt,
-        batchNumber: 0 // Will be assigned per date
+        batchNumber: 0, // Will be assigned per date
+        batchName: entries[0]?.batchName, // Get from first entry (all entries in batch have same name)
+        isChecked: entries[0]?.isChecked || false // Get from first entry
       }))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
@@ -103,6 +112,38 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets }) => {
   };
 
   const currentBatches = selectedDate ? reportData.batchesByDate[selectedDate] || [] : [];
+
+  const handleEditBatchName = (batchId: string, currentName?: string) => {
+    setEditingBatchId(batchId);
+    setEditingBatchName(currentName || '');
+  };
+
+  const handleSaveBatchName = async (batchId: string) => {
+    try {
+      await api.stockIn.updateBatch(batchId, editingBatchName);
+      addToast('Batch name updated successfully', 'success');
+      setEditingBatchId(null);
+      // Trigger re-fetch by updating a dummy state or use a callback
+      window.location.reload(); // Simple refresh for now
+    } catch (error: any) {
+      addToast(error.message || 'Failed to update batch name', 'error');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBatchId(null);
+    setEditingBatchName('');
+  };
+
+  const handleToggleChecked = async (batchId: string, currentChecked: boolean) => {
+    try {
+      await api.stockIn.updateBatch(batchId, undefined, !currentChecked);
+      addToast('Batch status updated', 'success');
+      window.location.reload(); // Simple refresh for now
+    } catch (error: any) {
+      addToast(error.message || 'Failed to update batch status', 'error');
+    }
+  };
 
   const outletOptions = [
     { value: '', label: 'All Outlets' },
@@ -175,9 +216,58 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets }) => {
             <div key={batch.batchId} className="glass-panel rounded-[32px] overflow-hidden shadow-xl ring-1 ring-black/5">
               {/* Batch Header */}
               <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-8 py-4 flex items-center justify-between">
-                <div>
-                  <h3 className="text-white text-lg font-bold">Stock Entry #{batch.batchNumber}</h3>
-                  <p className="text-slate-300 text-sm">
+                <div className="flex-1">
+                  <div className="flex items-center gap-4">
+                    {editingBatchId === batch.batchId ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={editingBatchName}
+                          onChange={(e) => setEditingBatchName(e.target.value)}
+                          className="px-3 py-1 bg-white text-slate-900 rounded-lg text-lg font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          placeholder="Enter batch name..."
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => handleSaveBatchName(batch.batchId)}
+                          className="p-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+                        >
+                          <Check size={18} />
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="p-1.5 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-white text-lg font-bold">
+                          {batch.batchName || `Stock Entry #${batch.batchNumber}`}
+                        </h3>
+                        <button
+                          onClick={() => handleEditBatchName(batch.batchId, batch.batchName)}
+                          className="p-1.5 bg-white/10 text-white rounded-lg hover:bg-white/20 transition"
+                          title="Edit batch name"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleToggleChecked(batch.batchId, batch.isChecked || false)}
+                          className={`p-1.5 rounded-lg transition ${
+                            batch.isChecked 
+                              ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
+                              : 'bg-white/10 text-white hover:bg-white/20'
+                          }`}
+                          title={batch.isChecked ? 'Mark as unchecked' : 'Mark as checked'}
+                        >
+                          <Check size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-slate-300 text-sm mt-1">
                     Date: {batch.entryDate} • Submitted: {new Date(batch.createdAt).toLocaleString()} • {batch.entries.length} items
                   </p>
                 </div>
