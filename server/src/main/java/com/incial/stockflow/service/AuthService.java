@@ -5,11 +5,6 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.incial.stockflow.dto.request.GoogleLoginRequest;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
-import com.incial.stockflow.dto.request.GoogleLoginRequest;
 import com.incial.stockflow.dto.request.LoginRequest;
 import com.incial.stockflow.dto.response.LoginResponse;
 import com.incial.stockflow.dto.response.UserResponse;
@@ -20,15 +15,10 @@ import com.incial.stockflow.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.util.Collections;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -66,6 +56,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .role(user.getRole())
                 .outletId(user.getOutlet() != null ? user.getOutlet().getId() : null)
+                .avatarUrl(user.getAvatarUrl())
                 .build();
         
         return LoginResponse.builder()
@@ -129,6 +120,7 @@ public class AuthService {
                     .email(user.getEmail())
                     .role(user.getRole())
                     .outletId(user.getOutlet() != null ? user.getOutlet().getId() : null)
+                    .avatarUrl(user.getAvatarUrl())
                     .build();
 
             return LoginResponse.builder()

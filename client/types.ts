@@ -23,6 +23,7 @@ export interface User {
   email: string;
   role: UserRole;
   outletId?: string | null; // null for ADMIN, UUID for REFILLER
+  avatarUrl?: string | null; // Profile picture URL (from Google login or manual upload)
 }
 
 export interface StockEntry {

@@ -45,7 +45,21 @@ const LayoutContent: React.FC<MainLayoutProps> = ({ user, onLogout, children }) 
                   <span className="font-black text-slate-800 tracking-tight">MEOWENDI</span>
                 </div>
              </div>
-             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
+             {/* Mobile header avatar */}
+             {user.avatarUrl ? (
+               <img 
+                 src={user.avatarUrl} 
+                 alt={user.name}
+                 className="w-8 h-8 rounded-full object-cover shadow-md"
+                 onError={(e) => {
+                   // Fallback to initials if image fails to load
+                   e.currentTarget.style.display = 'none';
+                   const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                   if (fallback) fallback.style.display = 'flex';
+                 }}
+               />
+             ) : null}
+             <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs shadow-md ${user.avatarUrl ? 'hidden' : ''}`}>
                 {user.name.charAt(0)}
              </div>
           </div>

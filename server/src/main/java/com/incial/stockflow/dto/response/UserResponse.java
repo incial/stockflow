@@ -18,4 +18,5 @@ public class UserResponse {
     private String email;
     private UserRole role;
     private UUID outletId;
+    private String avatarUrl;
 }
