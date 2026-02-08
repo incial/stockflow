@@ -34,6 +34,7 @@ export interface StockEntry {
   entryDate: string;
   enteredBy: string;
   createdAt: string;
+  batchId?: string; // UUID linking entries submitted together
   additionalData?: Record<string, string | number>; // Dynamic fields
 }
 

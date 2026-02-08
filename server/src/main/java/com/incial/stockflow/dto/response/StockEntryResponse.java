@@ -18,6 +18,7 @@ public class StockEntryResponse {
     private Integer quantity;
     private BigDecimal amount;
     private LocalDate entryDate;
+    private UUID batchId;
     private JsonNode additionalData;
 }
 

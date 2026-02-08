@@ -24,6 +24,10 @@ import java.util.UUID;
                 @Index(
                         name = "idx_stock_entry_product_date",
                         columnList = "product_id, entry_date"
+                ),
+                @Index(
+                        name = "idx_stock_entry_batch_id",
+                        columnList = "batch_id"
                 )
         }
 )
@@ -68,9 +72,8 @@ public class StockEntry {
     @Column(nullable = false)
     private LocalDate entryDate;
 
-    // -----------------------------
-    // JSONB (FIXED PROPERLY)
-    // -----------------------------
+    @Column(name = "batch_id")
+    private UUID batchId;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")

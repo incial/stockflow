@@ -116,6 +116,7 @@ public class StockInService {
         // -----------------------------
 
         List<StockEntryResponse> responses = new ArrayList<>();
+        UUID batchId = UUID.randomUUID(); // Generate batch ID for this submission
 
         for (StockInItemRequest item : request.getItems()) {
 
@@ -128,6 +129,7 @@ public class StockInService {
                     .amount(item.getAmount())
                     .entryDate(request.getEntryDate())
                     .enteredBy(currentUser)
+                    .batchId(batchId)
                     .additionalData(item.getAdditionalData())
                     .build();
 
@@ -159,11 +161,12 @@ public class StockInService {
     private StockEntryResponse toResponse(StockEntry entry) {
         return StockEntryResponse.builder()
                 .id(entry.getId())
-                .outletId(entry.getOutlet().getId())     // SAFE (ID only)
-                .productId(entry.getProduct().getId())  // SAFE (ID only)
+                .outletId(entry.getOutlet().getId())     
+                .productId(entry.getProduct().getId())  
                 .quantity(entry.getQuantity())
                 .amount(entry.getAmount())
                 .entryDate(entry.getEntryDate())
+                .batchId(entry.getBatchId())
                 .additionalData(entry.getAdditionalData())
                 .build();
     }
