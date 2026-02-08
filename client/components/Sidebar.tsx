@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { User, UserRole } from '../types';
 import { useLayout } from '../context/LayoutContext';
@@ -24,6 +24,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   const { isSidebarOpen, toggleSidebar, isMobile } = useLayout();
   const location = useLocation();
+  const [imageError, setImageError] = useState(false);
 
   const navItems = user.role === UserRole.ADMIN 
     ? [
@@ -124,28 +125,23 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
             );
           })}
         </nav>
-
         {/* User Footer */}
         <div className="p-4 border-t border-white/5 bg-black/20">
           <div className={`flex items-center gap-3 ${isSidebarOpen ? '' : 'justify-center'}`}>
             {/* Avatar - show profile picture if available, otherwise show initials */}
-            {user.avatarUrl ? (
-              <img 
-                src={user.avatarUrl} 
-                alt={user.name}
-                className="w-10 h-10 rounded-full ring-2 ring-white/10 object-cover shadow-lg shrink-0"
-                onError={(e) => {
-                  // Fallback to initials if image fails to load
-                  e.currentTarget.style.display = 'none';
-                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                  if (fallback) fallback.style.display = 'flex';
-                }}
-              />
-            ) : null}
-            <div 
-              className={`w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 ring-2 ring-white/10 flex items-center justify-center text-white font-bold shadow-lg shrink-0 ${user.avatarUrl ? 'hidden' : ''}`}
-            >
-              {user.name.charAt(0)}
+            <div className="relative w-10 h-10 shrink-0">
+              {user.avatarUrl && user.avatarUrl.trim() !== '' && !imageError ? (
+                <img 
+                  src={user.avatarUrl}                
+                  alt={user.name}
+                  className="w-10 h-10 rounded-full ring-2 ring-white/10 object-cover shadow-lg"
+                  onError={() => setImageError(true)}
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 ring-2 ring-white/10 flex items-center justify-center text-white font-bold shadow-lg">
+                  {user.name.charAt(0)}
+                </div>
+              )}
             </div>
             
             {isSidebarOpen && (
