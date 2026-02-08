@@ -1,5 +1,6 @@
 package com.incial.stockflow.service;
 
+import com.incial.stockflow.dto.request.BatchUpdateRequest;
 import com.incial.stockflow.dto.request.StockInBatchRequest;
 import com.incial.stockflow.dto.request.StockInItemRequest;
 import com.incial.stockflow.dto.response.StockEntryResponse;
@@ -155,6 +156,41 @@ public class StockInService {
     }
 
     // ----------------------------------------------------------------
+    // UPDATE BATCH API
+    // ----------------------------------------------------------------
+
+    @Transactional
+    public void updateBatch(BatchUpdateRequest request, User currentUser) {
+        // Only ADMIN can update batch metadata
+        if (currentUser.getRole() != UserRole.ADMIN) {
+            throw new ForbiddenException("Only administrators can update batch information");
+        }
+
+        // Find all entries with the given batchId
+        List<StockEntry> entries = stockEntryRepository.findByBatchId(request.getBatchId());
+        
+        if (entries.isEmpty()) {
+            throw new BusinessException(
+                    "BIZ_003",
+                    "No entries found with batch ID: " + request.getBatchId()
+            );
+        }
+
+        // Update all entries in the batch
+        entries.forEach(entry -> {
+            if (request.getBatchName() != null) {
+                entry.setBatchName(request.getBatchName());
+            }
+            if (request.getIsChecked() != null) {
+                entry.setIsChecked(request.getIsChecked());
+            }
+        });
+
+        stockEntryRepository.saveAll(entries);
+
+    }
+
+    // ----------------------------------------------------------------
     // Entity → DTO mapping (single responsibility)
     // ----------------------------------------------------------------
 
@@ -167,6 +203,8 @@ public class StockInService {
                 .amount(entry.getAmount())
                 .entryDate(entry.getEntryDate())
                 .batchId(entry.getBatchId())
+                .batchName(entry.getBatchName())
+                .isChecked(entry.getIsChecked())
                 .additionalData(entry.getAdditionalData())
                 .build();
     }

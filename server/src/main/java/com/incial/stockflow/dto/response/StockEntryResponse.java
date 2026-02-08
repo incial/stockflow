@@ -19,6 +19,8 @@ public class StockEntryResponse {
     private BigDecimal amount;
     private LocalDate entryDate;
     private UUID batchId;
+    private String batchName;
+    private Boolean isChecked;
     private JsonNode additionalData;
 }
 

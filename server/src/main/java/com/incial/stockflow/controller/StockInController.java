@@ -1,5 +1,6 @@
 package com.incial.stockflow.controller;
 
+import com.incial.stockflow.dto.request.BatchUpdateRequest;
 import com.incial.stockflow.dto.request.StockInBatchRequest;
 import com.incial.stockflow.dto.response.StockEntryResponse;
 import com.incial.stockflow.dto.response.StockInBatchResponse;
@@ -49,5 +50,14 @@ public class StockInController {
                                 .entries(entries)
                                 .build()
                 );
+    }
+
+    @PatchMapping("/batch")
+    public ResponseEntity<Void> updateBatch(
+            @Valid @RequestBody BatchUpdateRequest request,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        stockInService.updateBatch(request, currentUser);
+        return ResponseEntity.ok().build();
     }
 }

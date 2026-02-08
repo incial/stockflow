@@ -75,6 +75,12 @@ public class StockEntry {
     @Column(name = "batch_id")
     private UUID batchId;
 
+    @Column(name = "batch_name")
+    private String batchName;
+
+    @Column(name = "is_checked", nullable = false)
+    private Boolean isChecked = false;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private JsonNode additionalData;

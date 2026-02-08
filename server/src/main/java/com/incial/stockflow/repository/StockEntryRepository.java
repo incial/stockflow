@@ -12,6 +12,8 @@ import java.util.UUID;
 public interface StockEntryRepository extends JpaRepository<StockEntry, UUID> {
     List<StockEntry> findByOutletIdOrderByEntryDateDescCreatedAtDesc(UUID outletId);
     List<StockEntry> findAllByOrderByEntryDateDescCreatedAtDesc();
+    List<StockEntry> findByBatchId(UUID batchId);
+    
     @Query("""
     select coalesce(sum(se.quantity), 0)
     from StockEntry se
