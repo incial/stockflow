@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { User } from '../types';
 import Sidebar from './Sidebar';
 import { LayoutProvider, useLayout } from '../context/LayoutContext';
@@ -14,6 +14,7 @@ interface MainLayoutProps {
 // Separate internal component to consume context
 const LayoutContent: React.FC<MainLayoutProps> = ({ user, onLogout, children }) => {
   const { isSidebarOpen, toggleSidebar, isMobile } = useLayout();
+  const [imageError, setImageError] = useState(false);
 
   return (
     <div className="min-h-screen flex relative">
@@ -45,8 +46,20 @@ const LayoutContent: React.FC<MainLayoutProps> = ({ user, onLogout, children }) 
                   <span className="font-black text-slate-800 tracking-tight">MEOWENDI</span>
                 </div>
              </div>
-             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
-                {user.name.charAt(0)}
+             {/* Mobile header avatar */}
+             <div className="relative w-8 h-8">
+               {user.avatarUrl && user.avatarUrl.trim() !== '' && !imageError ? (
+                 <img 
+                   src={user.avatarUrl} 
+                   alt={user.name}
+                   className="w-8 h-8 rounded-full object-cover shadow-md"
+                   onError={() => setImageError(true)}
+                 />
+               ) : (
+                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
+                   {user.name.charAt(0)}
+                 </div>
+               )}
              </div>
           </div>
         )}
