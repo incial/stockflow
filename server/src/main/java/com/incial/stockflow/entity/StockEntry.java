@@ -78,7 +78,7 @@ public class StockEntry {
     @Column(name = "batch_name")
     private String batchName;
 
-    @Column(name = "is_checked", nullable = false)
+    @Column(name = "is_checked")
     private Boolean isChecked = false;
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -92,4 +92,13 @@ public class StockEntry {
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+
+    @PrePersist
+    public void prePersist() {
+        if (isChecked == null) {
+            isChecked = false;
+        }
+    }
+
 }

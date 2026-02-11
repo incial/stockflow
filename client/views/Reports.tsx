@@ -345,60 +345,37 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, refreshDa
                     </tr>
                   </thead>
                   <tbody>
-                    {(() => {
-                      // Group entries by brand for display within this batch
-                      const entriesByBrand: Record<string, EnrichedStockEntry[]> = {};
-                      batch.entries.forEach(entry => {
-                        const brand = entry.brand || 'Unknown';
-                        if (!entriesByBrand[brand]) entriesByBrand[brand] = [];
-                        entriesByBrand[brand].push(entry);
-                      });
-
-                      return (Object.entries(entriesByBrand) as [string, EnrichedStockEntry[]][]).map(([brand, entries]) => {
-                        const brandTotalAmt = entries.reduce((sum, e) => sum + (e.amount || 0), 0);
-                        const brandTotalProfit = entries.reduce((sum, e) => sum + (e.profit || 0), 0);
-
-                        return (
-                          <React.Fragment key={brand}>
-                            <tr className="bg-slate-50/80 border-b border-slate-100">
-                              <td colSpan={8} className="px-6 py-3 text-xs font-black uppercase tracking-widest text-slate-500">
-                                {brand}
-                              </td>
-                            </tr>
-                            {entries.map((entry, idx) => {
-                              return (
-                                <tr key={`${entry.id}-${idx}`} className="hover:bg-slate-50/50 border-b border-slate-100/50 group transition-colors">
-                                  <td className="px-6 py-3 text-[10px] text-slate-400 font-mono border-r border-slate-100/50">{idx + 1}</td>
-                                  <td className="px-6 py-3 text-sm font-semibold text-slate-700 border-r border-slate-100/50 truncate">{entry.productName}</td>
-                                  <td className="px-6 py-3 text-[10px] text-center font-mono text-slate-500 border-r border-slate-100/50">{entry.mrp.toFixed(2)}</td>
-                                  <td className="px-4 py-3 text-center text-sm font-bold border-r border-slate-100/50 text-slate-900 bg-slate-50/30">{entry.quantity}</td>
-                                  <td className="px-4 py-3 text-right text-sm font-medium text-indigo-600 border-r border-slate-100/50">{entry.amount.toFixed(0)}</td>
-                                  <td className={`px-4 py-3 text-right text-sm font-bold border-r border-slate-100/50 ${entry.profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                    {entry.profit.toFixed(0)}
-                                  </td>
-                                  <td className="px-4 py-3 text-right text-xs text-slate-500 border-r border-slate-100/50 font-mono">{entry.marginPerBottle.toFixed(1)}</td>
-                                  <td className="px-4 py-3 text-center">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                      entry.margin > 20 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 
-                                      entry.margin > 10 ? 'bg-amber-50 border-amber-100 text-amber-700' : 
-                                      'bg-rose-50 border-rose-100 text-rose-700'
-                                    }`}>
-                                      {entry.margin.toFixed(1)}%
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                            <tr className="bg-slate-100/50 font-bold text-[11px] border-b border-slate-200">
-                              <td colSpan={4} className="px-6 py-3 text-right border-r border-slate-200/50 text-slate-400 uppercase tracking-tighter">Total for {brand}</td>
-                              <td className="px-4 py-3 text-right border-r border-slate-200/50 text-indigo-700">₹{brandTotalAmt.toFixed(0)}</td>
-                              <td className="px-4 py-3 text-right border-r border-slate-200/50 text-emerald-700">₹{brandTotalProfit.toFixed(0)}</td>
-                              <td colSpan={2}></td>
-                            </tr>
-                          </React.Fragment>
-                        );
-                      });
-                    })()}
+                    {batch.entries.map((entry, idx) => {
+                      return (
+                        <tr key={`${entry.id}-${idx}`} className="hover:bg-slate-50/50 border-b border-slate-100/50 group transition-colors">
+                          <td className="px-6 py-3 text-[10px] text-slate-400 font-mono border-r border-slate-100/50">{idx + 1}</td>
+                          <td className="px-6 py-3 text-sm font-semibold text-slate-700 border-r border-slate-100/50 truncate">{entry.productName}</td>
+                          <td className="px-6 py-3 text-[10px] text-center font-mono text-slate-500 border-r border-slate-100/50">{entry.mrp.toFixed(2)}</td>
+                          <td className="px-4 py-3 text-center text-sm font-bold border-r border-slate-100/50 text-slate-900 bg-slate-50/30">{entry.quantity}</td>
+                          <td className="px-4 py-3 text-right text-sm font-medium text-indigo-600 border-r border-slate-100/50">{entry.amount.toFixed(0)}</td>
+                          <td className={`px-4 py-3 text-right text-sm font-bold border-r border-slate-100/50 ${entry.profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {entry.profit.toFixed(0)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-xs text-slate-500 border-r border-slate-100/50 font-mono">{entry.marginPerBottle.toFixed(1)}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                              entry.margin > 20 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 
+                              entry.margin > 10 ? 'bg-amber-50 border-amber-100 text-amber-700' : 
+                              'bg-rose-50 border-rose-100 text-rose-700'
+                            }`}>
+                              {entry.margin.toFixed(1)}%
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {/* Batch Total Row */}
+                    <tr className="bg-slate-900 text-white font-bold text-sm">
+                      <td colSpan={4} className="px-6 py-4 text-right border-r border-white/10 uppercase tracking-wider">Batch Total</td>
+                      <td className="px-4 py-4 text-right border-r border-white/10">₹{batch.entries.reduce((sum, e) => sum + e.amount, 0).toFixed(0)}</td>
+                      <td className="px-4 py-4 text-right border-r border-white/10">₹{batch.entries.reduce((sum, e) => sum + e.profit, 0).toFixed(0)}</td>
+                      <td colSpan={2}></td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
