@@ -368,6 +368,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
         subtitle="Please review the items you're about to submit"
         confirmButtonText="Submit Batch"
         confirmButtonColor="indigo"
+        modalType="stockIn"
       />
 
       {/* Edit Modal */}

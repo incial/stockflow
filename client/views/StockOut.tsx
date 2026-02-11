@@ -141,6 +141,7 @@ const StockOut: React.FC<StockOutProps> = ({
         subtitle="Please review the items you're about to remove"
         confirmButtonText="Confirm Removal"
         confirmButtonColor="rose"
+        modalType="stockOut"
       />
 
       {/* Header */}
