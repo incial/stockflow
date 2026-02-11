@@ -4,6 +4,7 @@ import { Save, Calendar, Store, Info, Plus, Trash2, PackagePlus, Layers, Edit2, 
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
 import ConfirmationModal, { ConfirmationItem } from '../components/ConfirmationModal';
+import { formatFullDate } from '../utils/calculations';
 
 interface RefillerDashboardProps {
   user: User;
@@ -367,6 +368,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
         subtitle="Please review the items you're about to submit"
         confirmButtonText="Submit Batch"
         confirmButtonColor="indigo"
+        modalType="stockIn"
       />
 
       {/* Edit Modal */}
@@ -472,7 +474,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
             <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
                <span className="font-bold text-slate-700">{user.name}</span>
                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-               <span>{new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+               <span>{formatFullDate()}</span>
             </div>
           </div>
         </div>

@@ -60,4 +60,13 @@ public class StockInController {
         stockInService.updateBatch(request, currentUser);
         return ResponseEntity.ok().build();
     }
+
+    @DeleteMapping("/batch/{batchId}")
+    public ResponseEntity<Void> deleteBatch(
+            @PathVariable UUID batchId,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        stockInService.deleteBatch(batchId, currentUser);
+        return ResponseEntity.noContent().build();
+    }
 }

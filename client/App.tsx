@@ -201,7 +201,7 @@ const AppContent: React.FC = () => {
             <>
               <Route path="/" element={<AdminDashboard entries={entries} products={products} outlets={outlets} />} />
               <Route path="/inventory" element={<InventoryReport entries={entries} stockOuts={stockOuts} products={products} outlets={outlets} />} />
-              <Route path="/reports" element={<Reports entries={entries} products={products} outlets={outlets} refreshData={refreshData} />} />
+              <Route path="/reports" element={<Reports entries={entries} products={products} outlets={outlets} currentUser={currentUser} refreshData={refreshData} />} />
               <Route path="/audit-logs" element={<AuditLogs />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </>

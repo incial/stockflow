@@ -20,6 +20,7 @@ interface ConfirmationModalProps {
   confirmButtonText?: string;
   confirmButtonColor?: 'indigo' | 'rose';
   isProcessing?: boolean;
+  modalType?: 'stockIn' | 'stockOut'; // Type of modal to control display
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -31,13 +32,18 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   subtitle,
   confirmButtonText = 'Confirm',
   confirmButtonColor = 'indigo',
-  isProcessing = false
+  isProcessing = false,
+  modalType = 'stockIn' // Default to stockIn for backward compatibility
 }) => {
   if (!isOpen) return null;
 
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
   const totalCost = items.reduce((sum, item) => sum + item.amount, 0);
   const totalMrpValue = items.reduce((sum, item) => sum + (item.mrp * item.quantity), 0);
+  
+  // Calculate if there's a loss (only relevant for stockIn)
+  const isLoss = modalType === 'stockIn' && totalCost > totalMrpValue;
+  const showSummaryStats = modalType === 'stockIn'; // Only show stats for Stock In
 
   // Group items by brand
   const itemsByBrand = items.reduce((acc, item) => {
@@ -90,27 +96,44 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
           </button>
         </div>
 
-        {/* Summary Stats */}
-        <div className="p-6 bg-gradient-to-r from-slate-50/50 to-slate-100/30 border-b border-slate-100 shrink-0">
-          <div className="grid grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Items</div>
-              <div className="text-2xl font-black text-slate-800">{items.length}</div>
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Quantity</div>
-              <div className="text-2xl font-black text-slate-800">{totalQuantity}</div>
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total MRP Value</div>
-              <div className="text-2xl font-black text-slate-800">₹{totalMrpValue.toFixed(2)}</div>
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Cost</div>
-              <div className="text-2xl font-black text-slate-800">₹{totalCost.toFixed(2)}</div>
+        {/* Summary Stats - Only show for Stock In */}
+        {showSummaryStats && (
+          <div className="p-6 bg-gradient-to-r from-slate-50/50 to-slate-100/30 border-b border-slate-100 shrink-0">
+            {/* Loss Warning Banner */}
+            {isLoss && (
+              <div className="mb-4 bg-rose-50 border-2 border-rose-200 rounded-xl p-4 flex items-center gap-3">
+                <div className="bg-rose-100 p-2 rounded-lg">
+                  <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <div className="font-bold text-rose-900 text-sm">⚠️ Loss Detected: Cost exceeds MRP value</div>
+                  <div className="text-rose-700 text-xs mt-0.5">The total cost is higher than the total MRP value. Please review before submitting.</div>
+                </div>
+              </div>
+            )}
+            
+            <div className="grid grid-cols-4 gap-4">
+              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Items</div>
+                <div className="text-2xl font-black text-slate-800">{items.length}</div>
+              </div>
+              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Quantity</div>
+                <div className="text-2xl font-black text-slate-800">{totalQuantity}</div>
+              </div>
+              <div className={`bg-white rounded-xl p-4 shadow-sm border ${isLoss ? 'border-rose-300 bg-rose-50/30' : 'border-slate-100'}`}>
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total MRP Value</div>
+                <div className={`text-2xl font-black ${isLoss ? 'text-rose-600' : 'text-slate-800'}`}>₹{totalMrpValue.toFixed(2)}</div>
+              </div>
+              <div className={`bg-white rounded-xl p-4 shadow-sm border ${isLoss ? 'border-rose-300 bg-rose-50/30' : 'border-slate-100'}`}>
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Cost</div>
+                <div className={`text-2xl font-black ${isLoss ? 'text-rose-600' : 'text-slate-800'}`}>₹{totalCost.toFixed(2)}</div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Items List - Scrollable */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">

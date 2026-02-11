@@ -188,6 +188,55 @@ public class StockInService {
 
         stockEntryRepository.saveAll(entries);
 
+        // Audit
+        auditService.logAction(
+                currentUser,
+                "UPDATE_BATCH",
+                "StockEntry",
+                null,
+                "Updated batch: name=" + request.getBatchName() + 
+                ", checked=" + request.getIsChecked()
+        );
+    }
+
+    // ----------------------------------------------------------------
+    // DELETE BATCH API
+    // ----------------------------------------------------------------
+
+    @Transactional
+    public void deleteBatch(UUID batchId, User currentUser) {
+        // Only ADMIN can delete batches
+        if (currentUser.getRole() != UserRole.ADMIN) {
+            throw new ForbiddenException("Only administrators can delete batches");
+        }
+
+        // Find all entries with the given batchId
+        List<StockEntry> entries = stockEntryRepository.findByBatchId(batchId);
+        
+        if (entries.isEmpty()) {
+            throw new BusinessException(
+                    "BIZ_004",
+                    "No entries found with batch ID: " + batchId
+            );
+        }
+
+        // Get batch info for audit log
+        int entryCount = entries.size();
+        String outletName = entries.get(0).getOutlet().getName();
+        String batchName = entries.get(0).getBatchName();
+
+        // Delete all entries in the batch
+        stockEntryRepository.deleteAll(entries);
+
+        // Audit
+        auditService.logAction(
+                currentUser,
+                "DELETE_BATCH",
+                "StockEntry",
+               null,
+                "Deleted batch '" + (batchName != null ? batchName : "unnamed") + 
+                "' with " + entryCount + " entries from outlet: " + outletName
+        );
     }
 
     // ----------------------------------------------------------------
@@ -197,8 +246,8 @@ public class StockInService {
     private StockEntryResponse toResponse(StockEntry entry) {
         return StockEntryResponse.builder()
                 .id(entry.getId())
-                .outletId(entry.getOutlet().getId())     
-                .productId(entry.getProduct().getId())  
+                .outletId(entry.getOutlet().getId())     // SAFE (ID only)
+                .productId(entry.getProduct().getId())  // SAFE (ID only)
                 .quantity(entry.getQuantity())
                 .amount(entry.getAmount())
                 .entryDate(entry.getEntryDate())
