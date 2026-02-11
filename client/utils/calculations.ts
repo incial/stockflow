@@ -46,7 +46,36 @@ export const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString('en-IN', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric'
+    year: 'numeric',
+    timeZone: 'Asia/Kolkata'
+  });
+};
+
+export const formatDateTime = (dateString: string): string => {
+  if (!dateString) return '-';
+  try {
+    return new Date(dateString).toLocaleString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: 'Asia/Kolkata'
+    });
+  } catch (e) {
+    return dateString;
+  }
+};
+
+export const formatFullDate = (date?: Date): string => {
+  const d = date || new Date();
+  return d.toLocaleDateString('en-IN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'Asia/Kolkata'
   });
 };
 

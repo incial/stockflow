@@ -5,6 +5,7 @@ import { AuditLog } from '../types';
 import { Loader2, ShieldAlert, Clock, Tag, Search, Filter, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { CustomSelect } from '../components/CustomSelect';
+import { formatDateTime } from '../utils/calculations';
 
 const AuditLogs: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -66,17 +67,6 @@ const AuditLogs: React.FC = () => {
     if (act.includes('UPDATE') || act.includes('EDIT')) return 'bg-amber-100 text-amber-700 border-amber-200';
     if (act.includes('DELETE') || act.includes('REMOVE')) return 'bg-rose-100 text-rose-700 border-rose-200';
     return 'bg-slate-100 text-slate-700 border-slate-200';
-  };
-
-  const formatDateTime = (timestamp: string) => {
-    try {
-      return new Date(timestamp).toLocaleString('en-IN', {
-        day: 'numeric', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit'
-      });
-    } catch (e) {
-      return timestamp;
-    }
   };
 
   const actionOptions = [

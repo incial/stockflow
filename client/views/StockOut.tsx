@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { User, StockEntry, StockOutEntry, Product } from '../types';
-import { getAvailableStock } from '../utils/calculations';
+import { getAvailableStock, formatFullDate } from '../utils/calculations';
 import { Save, Calendar, PackageMinus, Info, Layers, PackageOpen, Search, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import ConfirmationModal, { ConfirmationItem } from '../components/ConfirmationModal';
@@ -154,7 +154,7 @@ const StockOut: React.FC<StockOutProps> = ({
             <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
                <span className="font-bold text-slate-700">{user.name}</span>
                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-               <span>{new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+               <span>{formatFullDate()}</span>
             </div>
           </div>
         </div>

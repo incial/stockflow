@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { StockEntry, Product, EnrichedStockEntry, Outlet, User, UserRole } from '../types';
-import { calculateEntryMetrics } from '../utils/calculations';
+import { calculateEntryMetrics, formatDateTime } from '../utils/calculations';
 import { FileDown, CalendarDays, Filter, Edit2, Check, X, Trash2 } from 'lucide-react';
 import { CustomSelect } from '../components/CustomSelect';
 import { api } from '../services/api';
@@ -363,7 +363,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
                     )}
                   </div>
                   <p className="text-slate-300 text-sm mt-1">
-                    Date: {batch.entryDate} • Submitted: {new Date(batch.createdAt).toLocaleString()} • {batch.entries.length} items
+                    Date: {batch.entryDate} • Submitted: {formatDateTime(batch.createdAt)} • {batch.entries.length} items
                   </p>
                 </div>
                 <div className="text-right">
