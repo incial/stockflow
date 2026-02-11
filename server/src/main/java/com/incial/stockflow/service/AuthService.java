@@ -65,71 +65,98 @@ public class AuthService {
                 .build();
     }
 
+    @Transactional
     public LoginResponse loginWithGoogle(GoogleLoginRequest request) {
-        try {
-            // Check if Google Client ID is configured
-            if (googleClientId == null || googleClientId.trim().isEmpty()) {
-                throw new IllegalStateException("Google authentication is not properly configured. Please contact the administrator.");
-            }
 
-            // Verify Google ID token
+        if (request == null || request.getCredential() == null || request.getCredential().isBlank()) {
+            throw new UnauthorizedException("AUTH_GOOGLE_001", "Missing Google credential");
+        }
+
+        if (googleClientId == null || googleClientId.trim().isEmpty()) {
+            throw new IllegalStateException("Google authentication not configured on server");
+        }
+
+        GoogleIdToken idToken;
+
+        try {
             GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
                     new NetHttpTransport(),
                     GsonFactory.getDefaultInstance())
                     .setAudience(Collections.singletonList(googleClientId))
                     .build();
 
-            GoogleIdToken idToken = verifier.verify(request.getCredential());
-            if (idToken == null) {
-                throw new RuntimeException("Invalid Google ID token");
-            }
+            idToken = verifier.verify(request.getCredential());
 
-            GoogleIdToken.Payload payload = idToken.getPayload();
-            String googleId = payload.getSubject();
-            String email = payload.getEmail();
-            String name = (String) payload.get("name");
-            String pictureUrl = (String) payload.get("picture");
-
-            // Find user by email - user must be pre-registered
-            User user = userRepository.findByEmail(email).orElseThrow(
-                    () -> new UsernameNotFoundException("User not associated with this email. Contact sales")
-            );
-
-            // Update existing user with Google info only if values changed
-            boolean needsUpdate = false;
-            if (user.getGoogleId() == null || !user.getGoogleId().equals(googleId)) {
-                user.setGoogleId(googleId);
-                needsUpdate = true;
-            }
-            if (pictureUrl != null && (user.getAvatarUrl() == null || !user.getAvatarUrl().equals(pictureUrl))) {
-                user.setAvatarUrl(pictureUrl);
-                needsUpdate = true;
-            }
-            if (needsUpdate) {
-                userRepository.save(user);
-            }
-
-            String token = tokenProvider.generateToken(user.getId(),user.getEmail(), String.valueOf(user.getRole()));
-
-            // Log the login
-            auditService.logAction(user, "GOOGLE LOGIN", "User", user.getId(), "User logged in successfully");
-
-            UserResponse userResponse = UserResponse.builder()
-                    .id(user.getId())
-                    .name(user.getName())
-                    .email(user.getEmail())
-                    .role(user.getRole())
-                    .outletId(user.getOutlet() != null ? user.getOutlet().getId() : null)
-                    .avatarUrl(user.getAvatarUrl())
-                    .build();
-
-            return LoginResponse.builder()
-                    .token(token)
-                    .user(userResponse)
-                    .build();
-
-        } catch (GeneralSecurityException | IOException e) {
-            throw new RuntimeException("Google authentication failed. Please try again.");
+        } catch (Exception e) {
+            throw new UnauthorizedException("AUTH_GOOGLE_002", "Invalid Google token");
         }
+
+        if (idToken == null) {
+            throw new UnauthorizedException("AUTH_GOOGLE_003", "Invalid Google token");
+        }
+
+        GoogleIdToken.Payload payload;
+        try {
+            payload = idToken.getPayload();
+        } catch (Exception e) {
+            throw new UnauthorizedException("AUTH_GOOGLE_004", "Invalid Google payload");
+        }
+
+        String email = payload.getEmail();
+        String googleId = payload.getSubject();
+
+        if (email == null || googleId == null) {
+            throw new UnauthorizedException("AUTH_GOOGLE_005", "Google account missing required data");
+        }
+
+        String name = (String) payload.get("name");
+        String pictureUrl = (String) payload.get("picture");
+
+        // User lookup
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new UnauthorizedException("AUTH_GOOGLE_006",
+                                "User not associated with this email. Contact administrator"));
+
+        // Update Google details if changed
+        boolean needsUpdate = false;
+
+        if (user.getGoogleId() == null || !user.getGoogleId().equals(googleId)) {
+            user.setGoogleId(googleId);
+            needsUpdate = true;
+        }
+
+        if (pictureUrl != null && (user.getAvatarUrl() == null || !user.getAvatarUrl().equals(pictureUrl))) {
+            user.setAvatarUrl(pictureUrl);
+            needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+            userRepository.save(user);
+        }
+
+        // Generate JWT
+        String token = tokenProvider.generateToken(
+                user.getId(),
+                user.getEmail(),
+                String.valueOf(user.getRole())
+        );
+
+        auditService.logAction(user, "GOOGLE LOGIN", "User", user.getId(), "User logged in successfully");
+
+        UserResponse userResponse = UserResponse.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .outletId(user.getOutlet() != null ? user.getOutlet().getId() : null)
+                .avatarUrl(user.getAvatarUrl())
+                .build();
+
+        return LoginResponse.builder()
+                .token(token)
+                .user(userResponse)
+                .build();
     }
+
 }
