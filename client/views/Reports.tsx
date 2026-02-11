@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { StockEntry, Product, EnrichedStockEntry, Outlet } from '../types';
+import { StockEntry, Product, EnrichedStockEntry, Outlet, User, UserRole } from '../types';
 import { calculateEntryMetrics } from '../utils/calculations';
-import { FileDown, CalendarDays, Filter, Edit2, Check, X } from 'lucide-react';
+import { FileDown, CalendarDays, Filter, Edit2, Check, X, Trash2 } from 'lucide-react';
 import { CustomSelect } from '../components/CustomSelect';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
@@ -10,6 +10,7 @@ interface ReportsProps {
   entries: StockEntry[];
   products: Product[];
   outlets: Outlet[];
+  currentUser: User;
   refreshData?: () => Promise<void>;
 }
 
@@ -28,12 +29,15 @@ interface ReportDataState {
   sortedDates: string[];
 }
 
-const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, refreshData }) => {
+const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUser, refreshData }) => {
   const [filterOutlet, setFilterOutlet] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
   const [editingBatchName, setEditingBatchName] = useState('');
   const [localBatchUpdates, setLocalBatchUpdates] = useState<Record<string, { batchName?: string; isChecked?: boolean }>>({});
+  const [deletingBatchId, setDeletingBatchId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState<BatchGroup | null>(null);
   const { addToast } = useToast();
 
   const reportData = useMemo<ReportDataState>(() => {
@@ -196,6 +200,37 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, refreshDa
     }
   };
 
+  const handleDeleteClick = (batch: BatchGroup) => {
+    setBatchToDelete(batch);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setBatchToDelete(null);
+    setDeletingBatchId(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!batchToDelete) return;
+
+    try {
+      setDeletingBatchId(batchToDelete.batchId);
+      await api.stockIn.deleteBatch(batchToDelete.batchId);
+      addToast('Batch deleted successfully', 'success');
+      
+      // Refresh data to remove deleted batch
+      if (refreshData) {
+        await refreshData();
+      }
+      
+      handleCancelDelete();
+    } catch (error: any) {
+      setDeletingBatchId(null);
+      addToast(error.message || 'Failed to delete batch', 'error');
+    }
+  };
+
   const outletOptions = [
     { value: '', label: 'All Outlets' },
     ...outlets.map(o => ({ value: o.id, label: o.name }))
@@ -315,6 +350,15 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, refreshDa
                         >
                           <Check size={16} />
                         </button>
+                        {currentUser.role === UserRole.ADMIN && (
+                          <button
+                            onClick={() => handleDeleteClick(batch)}
+                            className="p-1.5 bg-rose-600/80 text-white rounded-lg hover:bg-rose-700 transition"
+                            title="Delete batch"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -390,6 +434,66 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, refreshDa
           <div>
             <h3 className="text-2xl font-light text-slate-800">No Data for Selected Date</h3>
             <p className="text-slate-500 mt-2 text-lg">Please select a date from above.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && batchToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center">
+                <Trash2 className="text-rose-600" size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Batch?</h3>
+                <p className="text-slate-600 mb-4">
+                  Are you sure you want to delete this batch? This action cannot be undone.
+                </p>
+                <div className="bg-slate-50 rounded-lg p-3 mb-4 space-y-1">
+                  <div className="text-sm">
+                    <span className="font-semibold text-slate-700">Batch Name: </span>
+                    <span className="text-slate-600">{batchToDelete.batchName || `Stock Entry #${batchToDelete.batchNumber}`}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold text-slate-700">Date: </span>
+                    <span className="text-slate-600">{batchToDelete.entryDate}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold text-slate-700">Items: </span>
+                    <span className="text-slate-600">{batchToDelete.entries.length} products</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold text-slate-700">Total Amount: </span>
+                    <span className="text-slate-600">₹{batchToDelete.entries.reduce((sum, e) => sum + e.amount, 0).toFixed(0)}</span>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCancelDelete}
+                    disabled={deletingBatchId !== null}
+                    className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmDelete}
+                    disabled={deletingBatchId !== null}
+                    className="flex-1 px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {deletingBatchId ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Deleting...
+                      </>
+                    ) : (
+                      'Delete Batch'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -273,6 +273,18 @@ export const api = {
       });
       return handleResponse<void>(response);
     },
+
+    /**
+     * Delete an entire batch by batch ID (ADMIN only)
+     * @param batchId Batch ID to delete
+     */
+    deleteBatch: async (batchId: string): Promise<void> => {
+      const response = await fetch(`${API_BASE_URL}/stock-in/batch/${batchId}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      return handleResponse<void>(response);
+    },
   },
 
   /**
