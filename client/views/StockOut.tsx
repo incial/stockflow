@@ -4,6 +4,12 @@ import { getAvailableStock, formatFullDate } from '../utils/calculations';
 import { Save, Calendar, PackageMinus, Info, Layers, PackageOpen, Search, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import ConfirmationModal, { ConfirmationItem } from '../components/ConfirmationModal';
+import { 
+  validatePositiveInteger, 
+  validateDate, 
+  validateStockAvailability,
+  sanitizeNumberInput 
+} from '../utils/validation';
 
 interface StockOutProps {
   user: User;
@@ -25,6 +31,16 @@ const StockOut: React.FC<StockOutProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   
   const [formData, setFormData] = useState<Record<string, string>>({});
+
+  // Handler for date change with validation
+  const handleDateChange = (newDate: string) => {
+    const validation = validateDate(newDate, 'Entry date', false);
+    if (!validation.isValid) {
+      addToast(validation.error || 'Invalid date', 'error');
+      return;
+    }
+    setEntryDate(newDate);
+  };
 
   // --- Confirmation Modal State ---
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -61,7 +77,28 @@ const StockOut: React.FC<StockOutProps> = ({
   }, [productsByBrand, user.outletId, stockEntries, stockOutEntries, searchQuery]);
 
   const handleInputChange = (productId: string, value: string) => {
-    setFormData(prev => ({ ...prev, [productId]: value }));
+    // Sanitize input - no decimals for quantity
+    const sanitized = sanitizeNumberInput(value, false);
+    
+    // Validate as positive integer
+    const validation = validatePositiveInteger(sanitized, 'Quantity', 99999);
+    if (sanitized && !validation.isValid) {
+      addToast(validation.error || 'Invalid quantity', 'error');
+      return;
+    }
+
+    // Validate against available stock
+    if (sanitized) {
+      const available = getAvailableStock(productId, user.outletId!, stockEntries, stockOutEntries);
+      const product = products.find(p => p.id === productId);
+      const stockValidation = validateStockAvailability(parseFloat(sanitized), available, product?.name);
+      if (!stockValidation.isValid) {
+        addToast(stockValidation.error || 'Insufficient stock', 'error');
+        return;
+      }
+    }
+
+    setFormData(prev => ({ ...prev, [productId]: sanitized }));
   };
 
   const handleSave = () => {
@@ -187,7 +224,8 @@ const StockOut: React.FC<StockOutProps> = ({
             <input 
               type="date"
               value={entryDate}
-              onChange={(e) => setEntryDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+              onChange={(e) => handleDateChange(e.target.value)}
               className="w-full sm:w-auto pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none text-sm font-bold shadow-sm"
             />
           </div>
@@ -246,7 +284,9 @@ const StockOut: React.FC<StockOutProps> = ({
                             <input 
                               type="number"
                               placeholder="0"
+                              min="0"
                               max={available}
+                              step="1"
                               value={formData[p.id] || ''}
                               onChange={(e) => handleInputChange(p.id, e.target.value)}
                               className="w-full text-center py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none text-sm font-bold text-rose-600 transition-all"

@@ -5,6 +5,7 @@ import { FileDown, CalendarDays, Filter, Edit2, Check, X, Trash2 } from 'lucide-
 import { CustomSelect } from '../components/CustomSelect';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
+import { validateText } from '../utils/validation';
 
 interface ReportsProps {
   entries: StockEntry[];
@@ -131,15 +132,22 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
   };
 
   const handleSaveBatchName = async (batchId: string) => {
+    // Validate batch name
+    const validation = validateText(editingBatchName.trim(), 'Batch name', 1, 100, true);
+    if (!validation.isValid) {
+      addToast(validation.error || 'Invalid batch name', 'error');
+      return;
+    }
+
     try {
       // Optimistic update
       setLocalBatchUpdates(prev => ({
         ...prev,
-        [batchId]: { ...prev[batchId], batchName: editingBatchName }
+        [batchId]: { ...prev[batchId], batchName: editingBatchName.trim() }
       }));
       setEditingBatchId(null);
       
-      await api.stockIn.updateBatch(batchId, editingBatchName);
+      await api.stockIn.updateBatch(batchId, editingBatchName.trim());
       addToast('Batch name updated successfully', 'success');
       
       // Refresh data from backend to ensure consistency
@@ -310,6 +318,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
                           type="text"
                           value={editingBatchName}
                           onChange={(e) => setEditingBatchName(e.target.value)}
+                          maxLength={100}
                           className="px-3 py-1 bg-white text-slate-900 rounded-lg text-lg font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
                           placeholder="Enter batch name..."
                           autoFocus

@@ -5,6 +5,13 @@ import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
 import ConfirmationModal, { ConfirmationItem } from '../components/ConfirmationModal';
 import { formatFullDate } from '../utils/calculations';
+import { 
+  validatePositiveInteger, 
+  validatePositiveDecimal, 
+  validateText,
+  validateDate,
+  sanitizeNumberInput 
+} from '../utils/validation';
 
 interface RefillerDashboardProps {
   user: User;
@@ -36,6 +43,16 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   
   // State for completely new categories
   const [customTables, setCustomTables] = useState<CustomTable[]>([]);
+
+  // Handler for date change with validation
+  const handleDateChange = (newDate: string) => {
+    const validation = validateDate(newDate, 'Entry date', false);
+    if (!validation.isValid) {
+      addToast(validation.error || 'Invalid date', 'error');
+      return;
+    }
+    setEntryDate(newDate);
+  };
   
   // State for new items added to EXISTING brands
   const [newItemsByBrand, setNewItemsByBrand] = useState<Record<string, CustomRow[]>>({});
@@ -60,11 +77,31 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   }, [products]);
 
   const handleInputChange = (productId: string, field: 'qty' | 'amt', value: string) => {
+    // Sanitize input based on field type
+    const sanitized = field === 'qty' 
+      ? sanitizeNumberInput(value, false)  // No decimals for quantity
+      : sanitizeNumberInput(value, true);   // Allow decimals for amount
+    
+    // Validate and show immediate feedback
+    if (field === 'qty') {
+      const validation = validatePositiveInteger(sanitized, 'Quantity', 99999);
+      if (sanitized && !validation.isValid) {
+        addToast(validation.error || 'Invalid quantity', 'error');
+        return;
+      }
+    } else {
+      const validation = validatePositiveDecimal(sanitized, 'Amount', 9999999.99);
+      if (sanitized && !validation.isValid) {
+        addToast(validation.error || 'Invalid amount', 'error');
+        return;
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
       [productId]: {
         ...(prev[productId] || { qty: '', amt: '' }),
-        [field]: value
+        [field]: sanitized
       }
     }));
   };
@@ -78,6 +115,31 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   };
 
   const handleUpdateNewItem = (brand: string, rowId: string, field: keyof CustomRow, value: string) => {
+    // Validate based on field type
+    if (field === 'name') {
+      const validation = validateText(value, 'Product name', 1, 100, false);
+      if (value && !validation.isValid) {
+        addToast(validation.error || 'Invalid product name', 'error');
+        return;
+      }
+    } else if (field === 'qty') {
+      const sanitized = sanitizeNumberInput(value, false);
+      const validation = validatePositiveInteger(sanitized, 'Quantity', 99999);
+      if (sanitized && !validation.isValid) {
+        addToast(validation.error || 'Invalid quantity', 'error');
+        return;
+      }
+      value = sanitized;
+    } else if (field === 'amt' || field === 'mrp') {
+      const sanitized = sanitizeNumberInput(value, true);
+      const validation = validatePositiveDecimal(sanitized, field === 'mrp' ? 'MRP' : 'Amount', 9999999.99);
+      if (sanitized && !validation.isValid) {
+        addToast(validation.error || `Invalid ${field}`, 'error');
+        return;
+      }
+      value = sanitized;
+    }
+
     setNewItemsByBrand(prev => ({
       ...prev,
       [brand]: (prev[brand] || []).map(r => r.id === rowId ? { ...r, [field]: value } : r)
@@ -125,6 +187,11 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   };
 
   const updateTableTitle = (tableId: string, title: string) => {
+    const validation = validateText(title, 'Category name', 1, 100, false);
+    if (title && !validation.isValid) {
+      addToast(validation.error || 'Invalid category name', 'error');
+      return;
+    }
     setCustomTables(customTables.map(t => t.id === tableId ? { ...t, title } : t));
   };
 
@@ -150,6 +217,31 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   };
 
   const updateRowData = (tableId: string, rowId: string, field: keyof CustomRow, value: string) => {
+    // Validate based on field type
+    if (field === 'name') {
+      const validation = validateText(value, 'Product name', 1, 100, false);
+      if (value && !validation.isValid) {
+        addToast(validation.error || 'Invalid product name', 'error');
+        return;
+      }
+    } else if (field === 'qty') {
+      const sanitized = sanitizeNumberInput(value, false);
+      const validation = validatePositiveInteger(sanitized, 'Quantity', 99999);
+      if (sanitized && !validation.isValid) {
+        addToast(validation.error || 'Invalid quantity', 'error');
+        return;
+      }
+      value = sanitized;
+    } else if (field === 'amt' || field === 'mrp') {
+      const sanitized = sanitizeNumberInput(value, true);
+      const validation = validatePositiveDecimal(sanitized, field === 'mrp' ? 'MRP' : 'Amount', 9999999.99);
+      if (sanitized && !validation.isValid) {
+        addToast(validation.error || `Invalid ${field}`, 'error');
+        return;
+      }
+      value = sanitized;
+    }
+
     setCustomTables(customTables.map(t => {
       if (t.id === tableId) {
         return {
@@ -322,6 +414,26 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
 
   const submitEdit = async () => {
     if (!editingProduct) return;
+    
+    // Validate inputs
+    const nameValidation = validateText(editForm.name, 'Product name', 1, 100, true);
+    if (!nameValidation.isValid) {
+      addToast(nameValidation.error || 'Invalid product name', 'error');
+      return;
+    }
+
+    const brandValidation = validateText(editForm.brand, 'Brand name', 1, 100, true);
+    if (!brandValidation.isValid) {
+      addToast(brandValidation.error || 'Invalid brand name', 'error');
+      return;
+    }
+
+    const mrpValidation = validatePositiveDecimal(editForm.mrp, 'MRP', 9999999.99);
+    if (!mrpValidation.isValid) {
+      addToast(mrpValidation.error || 'Invalid MRP', 'error');
+      return;
+    }
+
     try {
       setIsProcessing(true);
       await api.products.update(editingProduct.id, {
@@ -485,7 +597,8 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
             <input 
               type="date"
               value={entryDate}
-              onChange={(e) => setEntryDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+              onChange={(e) => handleDateChange(e.target.value)}
               className="w-full sm:w-auto pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold shadow-inner transition-all"
             />
           </div>
@@ -538,6 +651,9 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                         <input 
                           type="number"
                           placeholder="0"
+                          min="0"
+                          max="99999"
+                          step="1"
                           value={formData[p.id]?.qty || ''}
                           onChange={(e) => handleInputChange(p.id, 'qty', e.target.value)}
                           className="w-full text-center py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold transition-all"
@@ -547,6 +663,9 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                         <input 
                           type="number"
                           placeholder="0.00"
+                          min="0"
+                          max="9999999.99"
+                          step="0.01"
                           value={formData[p.id]?.amt || ''}
                           onChange={(e) => handleInputChange(p.id, 'amt', e.target.value)}
                           className="w-full text-center py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold text-indigo-600 transition-all focus:bg-white"
