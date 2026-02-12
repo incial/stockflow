@@ -20,17 +20,13 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        log.info("Login request received for email: {}", request.getEmail());
         LoginResponse response = authService.login(request);
-        log.info("Login successful for email: {}", request.getEmail());
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/google-login")
     public ResponseEntity<LoginResponse> googleLogin(@Valid @RequestBody GoogleLoginRequest request) {
-        log.info("Google login request received");
         LoginResponse response = authService.loginWithGoogle(request);
-        log.info("Google login completed successfully");
         return ResponseEntity.ok(response);
     }
 }

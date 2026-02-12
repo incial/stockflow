@@ -246,8 +246,8 @@ public class StockInService {
     private StockEntryResponse toResponse(StockEntry entry) {
         return StockEntryResponse.builder()
                 .id(entry.getId())
-                .outletId(entry.getOutlet().getId())     // SAFE (ID only)
-                .productId(entry.getProduct().getId())  // SAFE (ID only)
+                .outletId(entry.getOutlet().getId())
+                .productId(entry.getProduct().getId())
                 .quantity(entry.getQuantity())
                 .amount(entry.getAmount())
                 .entryDate(entry.getEntryDate())
