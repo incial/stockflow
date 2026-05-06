@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -116,12 +117,18 @@ public class StockInService {
         // Persist batch
         // -----------------------------
 
+        List<UUID> productIds = request.getItems().stream()
+                .map(StockInItemRequest::getProductId)
+                .distinct()
+                .toList();
+        Map<UUID, Product> productsById = productService.getProductsByIds(productIds);
+
+        List<StockEntry> entriesToSave = new ArrayList<>();
         List<StockEntryResponse> responses = new ArrayList<>();
         UUID batchId = UUID.randomUUID(); // Generate batch ID for this submission
 
         for (StockInItemRequest item : request.getItems()) {
-
-            Product product = productService.getProductById(item.getProductId());
+            Product product = productsById.get(item.getProductId());
 
             StockEntry entry = StockEntry.builder()
                     .outlet(outlet)
@@ -134,9 +141,13 @@ public class StockInService {
                     .additionalData(item.getAdditionalData())
                     .build();
 
-            StockEntry saved = stockEntryRepository.save(entry);
-            responses.add(toResponse(saved));
+            entriesToSave.add(entry);
         }
+
+        stockEntryRepository.saveAll(entriesToSave);
+        responses = entriesToSave.stream()
+                .map(this::toResponse)
+                .toList();
 
         // -----------------------------
         // Audit (AFTER persistence)

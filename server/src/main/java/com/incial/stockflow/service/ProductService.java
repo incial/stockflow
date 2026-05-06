@@ -10,7 +10,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -27,6 +30,19 @@ public class ProductService {
     public Product getProductById(UUID id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
+    }
+
+    public Map<UUID, Product> getProductsByIds(Collection<UUID> ids) {
+        Map<UUID, Product> productsById = new LinkedHashMap<>();
+        productRepository.findByIdIn(ids).forEach(product -> productsById.put(product.getId(), product));
+
+        for (UUID id : ids) {
+            if (!productsById.containsKey(id)) {
+                throw new ResourceNotFoundException("Product not found with id: " + id);
+            }
+        }
+
+        return productsById;
     }
 
     @Transactional

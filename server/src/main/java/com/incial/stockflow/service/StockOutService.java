@@ -14,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -93,24 +95,29 @@ public class StockOutService {
             );
         }
 
-        List<StockOutEntryResponse> responses = new ArrayList<>();
+        List<UUID> productIds = request.getItems().stream()
+                .map(StockOutItemRequest::getProductId)
+                .distinct()
+                .toList();
+        Map<UUID, Product> productsById = productService.getProductsByIds(productIds);
+        Map<UUID, Integer> availableStockByProductId = calculateAvailableStock(effectiveOutletId, productIds);
 
+        List<StockOutEntry> entriesToSave = new ArrayList<>();
+        Map<UUID, Integer> requestedQuantityByProductId = new HashMap<>();
         for (StockOutItemRequest item : request.getItems()) {
+            Product product = productsById.get(item.getProductId());
+            int totalRequestedQuantity = requestedQuantityByProductId.getOrDefault(item.getProductId(), 0)
+                    + item.getQuantity();
+            int availableStock = availableStockByProductId.getOrDefault(item.getProductId(), 0);
 
-            Product product = productService.getProductById(item.getProductId());
-
-            int availableStock = calculateAvailableStock(
-                    effectiveOutletId,
-                    item.getProductId()
-            );
-
-            if (availableStock < item.getQuantity()) {
+            if (availableStock < totalRequestedQuantity) {
                 throw new BusinessException(
                         "BIZ_001",
                         "Insufficient stock for product '" + product.getName()
                                 + "' at outlet '" + outlet.getName() + "'"
                 );
             }
+            requestedQuantityByProductId.put(item.getProductId(), totalRequestedQuantity);
 
             StockOutReason reason;
             try {
@@ -131,10 +138,13 @@ public class StockOutService {
                     .enteredBy(currentUser)
                     .build();
 
-            responses.add(
-                    toResponse(stockOutEntryRepository.save(entry))
-            );
+            entriesToSave.add(entry);
         }
+
+        stockOutEntryRepository.saveAll(entriesToSave);
+        List<StockOutEntryResponse> responses = entriesToSave.stream()
+                .map(this::toResponse)
+                .toList();
 
         auditService.logAction(
                 currentUser,
@@ -153,10 +163,23 @@ public class StockOutService {
     // Helpers
     // -------------------------------------------------
 
-    private int calculateAvailableStock(UUID outletId, UUID productId) {
-        int totalIn = stockEntryRepository.totalStockIn(outletId, productId);
-        int totalOut = stockOutEntryRepository.totalStockOut(outletId, productId);
-        return totalIn - totalOut;
+    private Map<UUID, Integer> calculateAvailableStock(UUID outletId, List<UUID> productIds) {
+        Map<UUID, Integer> totalStockInByProductId = new HashMap<>();
+        stockEntryRepository.totalStockInByOutletAndProductIds(outletId, productIds)
+                .forEach(total -> totalStockInByProductId.put(total.getProductId(), total.getTotalQuantity()));
+
+        Map<UUID, Integer> totalStockOutByProductId = new HashMap<>();
+        stockOutEntryRepository.totalStockOutByOutletAndProductIds(outletId, productIds)
+                .forEach(total -> totalStockOutByProductId.put(total.getProductId(), total.getTotalQuantity()));
+
+        Map<UUID, Integer> availableStockByProductId = new HashMap<>();
+        for (UUID productId : productIds) {
+            int totalIn = totalStockInByProductId.getOrDefault(productId, 0);
+            int totalOut = totalStockOutByProductId.getOrDefault(productId, 0);
+            availableStockByProductId.put(productId, totalIn - totalOut);
+        }
+
+        return availableStockByProductId;
     }
 
     private StockOutEntryResponse toResponse(StockOutEntry entry) {
