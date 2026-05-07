@@ -16,7 +16,7 @@ interface ReportsProps {
 }
 
 interface BatchGroup {
-  batchId: string;
+  batchId: number;
   entries: EnrichedStockEntry[];
   entryDate: string;
   createdAt: string;
@@ -33,10 +33,10 @@ interface ReportDataState {
 const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUser, refreshData }) => {
   const [filterOutlet, setFilterOutlet] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
+  const [editingBatchId, setEditingBatchId] = useState<number | null>(null);
   const [editingBatchName, setEditingBatchName] = useState('');
-  const [localBatchUpdates, setLocalBatchUpdates] = useState<Record<string, { batchName?: string; isChecked?: boolean }>>({});
-  const [deletingBatchId, setDeletingBatchId] = useState<string | null>(null);
+  const [localBatchUpdates, setLocalBatchUpdates] = useState<Record<number, { batchName?: string; isChecked?: boolean }>>({});
+  const [deletingBatchId, setDeletingBatchId] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [batchToDelete, setBatchToDelete] = useState<BatchGroup | null>(null);
   const { addToast } = useToast();
@@ -44,17 +44,17 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
   const reportData = useMemo<ReportDataState>(() => {
     // Filter entries by outlet if needed
     const filteredEntries = entries.filter(e => 
-      !filterOutlet || e.outletId === filterOutlet
+      !filterOutlet || String(e.outletId) === filterOutlet
     );
 
     // Group entries by batchId (proper batch identification)
-    const batchMap: Record<string, EnrichedStockEntry[]> = {};
+    const batchMap: Record<number, EnrichedStockEntry[]> = {};
     
     filteredEntries.forEach(e => {
       const metrics = calculateEntryMetrics(e, products, outlets);
       
       // Use batchId if available, otherwise fall back to createdAt for old entries
-      let batchKey: string;
+      let batchKey: number;
       if (e.batchId) {
         batchKey = e.batchId;
       } else {
@@ -68,7 +68,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
         }
         
         timestamp.setMilliseconds(0);
-        batchKey = timestamp.toISOString();
+        batchKey = -timestamp.getTime();
       }
       
       if (!batchMap[batchKey]) batchMap[batchKey] = [];
@@ -77,15 +77,15 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
 
     // Convert to array and sort by creation time (newest first)
     const batches: BatchGroup[] = Object.entries(batchMap)
-      .map(([createdAt, entries]) => {
-        const batchId = createdAt;
+      .map(([batchKey, entries]) => {
+        const batchId = Number(batchKey);
         const localUpdate = localBatchUpdates[batchId];
         
         return {
           batchId,
           entries,
           entryDate: entries[0]?.entryDate || '',
-          createdAt,
+          createdAt: entries[0]?.createdAt || '',
           batchNumber: 0, // Will be assigned per date
           // Apply local updates if they exist, otherwise use data from entries
           batchName: localUpdate?.batchName !== undefined ? localUpdate.batchName : entries[0]?.batchName,
@@ -126,12 +126,12 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
 
   const currentBatches = selectedDate ? reportData.batchesByDate[selectedDate] || [] : [];
 
-  const handleEditBatchName = (batchId: string, currentName?: string) => {
+  const handleEditBatchName = (batchId: number, currentName?: string) => {
     setEditingBatchId(batchId);
     setEditingBatchName(currentName || '');
   };
 
-  const handleSaveBatchName = async (batchId: string) => {
+  const handleSaveBatchName = async (batchId: number) => {
     // Validate batch name
     const validation = validateText(editingBatchName.trim(), 'Batch name', 1, 100, true);
     if (!validation.isValid) {
@@ -176,7 +176,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
     setEditingBatchName('');
   };
 
-  const handleToggleChecked = async (batchId: string, currentChecked: boolean) => {
+  const handleToggleChecked = async (batchId: number, currentChecked: boolean) => {
     try {
       // Optimistic update
       setLocalBatchUpdates(prev => ({
@@ -241,7 +241,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
 
   const outletOptions = [
     { value: '', label: 'All Outlets' },
-    ...outlets.map(o => ({ value: o.id, label: o.name }))
+    ...outlets.map(o => ({ value: String(o.id), label: o.name }))
   ];
 
   return (

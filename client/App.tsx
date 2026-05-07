@@ -101,7 +101,7 @@ const AppContent: React.FC = () => {
       }
 
       // 1. Process New Products Creation First
-      const productIdMap: Record<string, string> = {}; // Maps tempId -> realId
+      const productIdMap: Record<number, number> = {}; // Maps tempId -> realId
 
       if (newProducts.length > 0) {
         // Create new products sequentially (or parallel) to get real IDs

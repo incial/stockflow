@@ -50,7 +50,7 @@ const AuditLogs: React.FC = () => {
         const matches = 
           log.userName.toLowerCase().includes(query) ||
           log.entityType.toLowerCase().includes(query) ||
-          (log.entityId || '').toLowerCase().includes(query) ||
+          String(log.entityId || '').toLowerCase().includes(query) ||
           log.details.toLowerCase().includes(query) ||
           log.action.toLowerCase().includes(query);
         
@@ -186,7 +186,7 @@ const AuditLogs: React.FC = () => {
                         <span className="text-sm font-medium text-slate-700">{log.entityType}</span>
                       </div>
                       <div className="text-[10px] text-slate-400 font-mono mt-0.5 ml-6 opacity-50 group-hover:opacity-100 transition-opacity">
-                        {log.entityId ? `ID: ${log.entityId.substring(0, 8)}...` : ''}
+                        {log.entityId ? `ID: ${log.entityId}` : ''}
                       </div>
                     </td>
                     <td className="px-6 py-4">

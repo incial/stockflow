@@ -80,8 +80,8 @@ export const formatFullDate = (date?: Date): string => {
 };
 
 export const getAvailableStock = (
-  productId: string,
-  outletId: string,
+  productId: number,
+  outletId: number,
   stockInEntries: StockEntry[],
   stockOutEntries: StockOutEntry[]
 ): number => {

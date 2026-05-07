@@ -22,10 +22,10 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
 
   const inventoryLevels = useMemo(() => {
     const levels: Array<{
-      productId: string;
+      productId: number;
       productName: string;
       brand: string;
-      outletId: string;
+      outletId: number;
       outletName: string;
       totalIn: number;
       totalOut: number;
@@ -34,7 +34,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
     const lowerQuery = searchQuery.toLowerCase().trim();
 
     outlets.forEach(outlet => {
-      if (filterOutlet && outlet.id !== filterOutlet) return;
+      if (filterOutlet && String(outlet.id) !== filterOutlet) return;
       products.forEach(product => {
         if (lowerQuery) {
           const matches = product.name.toLowerCase().includes(lowerQuery) || product.brand.toLowerCase().includes(lowerQuery);
@@ -63,7 +63,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
   const historyLog = useMemo(() => {
     const lowerQuery = searchQuery.toLowerCase().trim();
     return stockOuts.filter(entry => {
-        if (filterOutlet && entry.outletId !== filterOutlet) return false;
+        if (filterOutlet && String(entry.outletId) !== filterOutlet) return false;
         if (lowerQuery) {
            const product = products.find(p => p.id === entry.productId);
            const user = MOCK_USERS.find(u => u.id === entry.enteredBy);
@@ -95,7 +95,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
 
   const outletOptions = [
     { value: '', label: 'All Outlets' },
-    ...outlets.map(o => ({ value: o.id, label: o.name }))
+    ...outlets.map(o => ({ value: String(o.id), label: o.name }))
   ];
 
   return (

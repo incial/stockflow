@@ -67,6 +67,8 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationItems, setConfirmationItems] = useState<ConfirmationItem[]>([]);
 
+  const createTempId = () => -(Date.now() + Math.floor(Math.random() * 1000));
+
   const productsByBrand = useMemo(() => {
     const grouped: Record<string, Product[]> = {};
     products.forEach(p => {
@@ -76,7 +78,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
     return grouped;
   }, [products]);
 
-  const handleInputChange = (productId: string, field: 'qty' | 'amt', value: string) => {
+  const handleInputChange = (productId: number, field: 'qty' | 'amt', value: string) => {
     // Sanitize input based on field type
     const sanitized = field === 'qty' 
       ? sanitizeNumberInput(value, false)  // No decimals for quantity
@@ -267,8 +269,9 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
 
     // 1. Process Standard Entries (Existing Products)
     (Object.entries(formData) as [string, { qty: string, amt: string }][]).forEach(([productId, data]) => {
+      const numericProductId = Number(productId);
       if (data.qty && data.amt) {
-        const product = products.find(p => p.id === productId);
+        const product = products.find(p => p.id === numericProductId);
         if (product) {
           confirmItems.push({
             id: productId,
@@ -330,11 +333,12 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
 
     // 1. Process Standard Entries (Existing Products)
     (Object.entries(formData) as [string, { qty: string, amt: string }][]).forEach(([productId, data]) => {
+      const numericProductId = Number(productId);
       if (data.qty && data.amt) {
         newEntries.push({
-          id: `s-${Math.random().toString(36).substr(2, 9)}`,
+          id: createTempId(),
           outletId: user.outletId!,
-          productId,
+          productId: numericProductId,
           quantity: parseFloat(data.qty),
           amount: parseFloat(data.amt),
           entryDate,
@@ -348,7 +352,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
     (Object.entries(newItemsByBrand) as [string, CustomRow[]][]).forEach(([brand, rows]) => {
       rows.forEach(row => {
         if (row.name && row.qty && row.amt) {
-          const newProductId = `p-new-${Math.random().toString(36).substr(2, 9)}`;
+          const newProductId = createTempId();
           newProducts.push({
             id: newProductId,
             name: row.name,
@@ -356,7 +360,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
             mrp: parseFloat(row.mrp) || 0
           });
           newEntries.push({
-            id: `s-${Math.random().toString(36).substr(2, 9)}`,
+            id: createTempId(),
             outletId: user.outletId!,
             productId: newProductId,
             quantity: parseFloat(row.qty),
@@ -373,7 +377,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
     customTables.forEach(table => {
       table.rows.forEach(row => {
         if (row.name && row.qty && row.amt) {
-          const newProductId = `p-custom-${Math.random().toString(36).substr(2, 9)}`;
+          const newProductId = createTempId();
           newProducts.push({
             id: newProductId,
             name: row.name,
@@ -381,7 +385,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
             mrp: parseFloat(row.mrp) || 0
           });
           newEntries.push({
-            id: `s-${Math.random().toString(36).substr(2, 9)}`,
+            id: createTempId(),
             outletId: user.outletId!,
             productId: newProductId,
             quantity: parseFloat(row.qty),

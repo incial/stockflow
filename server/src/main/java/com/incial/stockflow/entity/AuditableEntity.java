@@ -10,7 +10,6 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
@@ -28,8 +27,8 @@ public abstract class AuditableEntity {
     
     @CreatedBy
     @Column(updatable = false)
-    private UUID createdBy;
+    private Long createdBy;
     
     @LastModifiedBy
-    private UUID lastModifiedBy;
+    private Long lastModifiedBy;
 }

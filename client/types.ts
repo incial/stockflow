@@ -5,37 +5,37 @@ export enum UserRole {
 }
 
 export interface Outlet {
-  id: string;
+  id: number;
   name: string;
   location: string;
 }
 
 export interface Product {
-  id: string;
+  id: number;
   name: string;
   brand: string; // Grouping category (e.g., "Parle Agro")
   mrp: number; // Maximum Retail Price (per unit)
 }
 
 export interface User {
-  id: string;
+  id: number;
   name: string;
   email: string;
   role: UserRole;
-  outletId?: string | null; // null for ADMIN, UUID for REFILLER
+  outletId?: number | null; // null for ADMIN, numeric ID for REFILLER
   avatarUrl?: string | null; // Profile picture URL (from Google login or manual upload)
 }
 
 export interface StockEntry {
-  id: string;
-  outletId: string;
-  productId: string;
+  id: number;
+  outletId: number;
+  productId: number;
   quantity: number;
   amount: number; // Total cost amount for the quantity entered
   entryDate: string;
-  enteredBy: string;
+  enteredBy: number;
   createdAt: string;
-  batchId?: string; // UUID linking entries submitted together
+  batchId?: number; // BIGINT linking entries submitted together
   batchName?: string; // Custom name assigned by admin
   isChecked?: boolean; // Checked status for admin review
   additionalData?: Record<string, string | number>; // Dynamic fields
@@ -44,13 +44,13 @@ export interface StockEntry {
 export type StockOutReason = 'Sale' | 'Damage' | 'Expiry' | 'Return' | 'Other';
 
 export interface StockOutEntry {
-  id: string;
-  outletId: string;
-  productId: string;
+  id: number;
+  outletId: number;
+  productId: number;
   quantity: number;
   date: string;
   reason: StockOutReason;
-  enteredBy: string;
+  enteredBy: number;
   createdAt: string;
 }
 
@@ -66,14 +66,14 @@ export interface EnrichedStockEntry extends StockEntry {
 }
 
 export interface AuditLog {
-  id: string;
-  userId: string;
+  id: number;
+  userId: number;
   userName: string;
   userEmail: string;
   userRole: UserRole;
   action: string; // e.g., "CREATE", "UPDATE", "LOGIN"
   entityType: string; // e.g., "Product", "StockEntry"
-  entityId?: string | null;
+  entityId?: number | null;
   details: string;
   ipAddress: string;
   userAgent: string;

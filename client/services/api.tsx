@@ -4,9 +4,9 @@ import { StockEntry, StockOutEntry, Product, Outlet, User, StockOutReason, Audit
 // ============================================
 // Configuration
 // ============================================
-const API_BASE_URL = import.meta.env.API_BASE_URL || '/api/v1';
+//const API_BASE_URL = import.meta.env.API_BASE_URL || '/api/v1';
 
-//const API_BASE_URL = 'http://localhost:8080/api/v1';
+const API_BASE_URL = 'http://localhost:8080/api/v1';
 
 // ============================================
 // Types
@@ -23,20 +23,20 @@ interface BatchResponse<T> {
 }
 
 interface StockInBatchRequest {
-  outletId: string;
+  outletId: number;
   entryDate: string; // YYYY-MM-DD
   items: {
-    productId: string;
+    productId: number;
     quantity: number;
     amount: number;
   }[];
 }
 
 interface StockOutBatchRequest {
-  outletId: string;
+  outletId: number;
   entryDate: string; // YYYY-MM-DD
   items: {
-    productId: string;
+    productId: number;
     quantity: number;
     reason: StockOutReason;
   }[];
@@ -184,11 +184,11 @@ export const api = {
 
     /**
      * Update an existing product
-     * @param id Product UUID
+     * @param id Product ID
      * @param product Updated data
      * @returns Updated Product
      */
-    update: async (id: string, product: { name: string; brand: string; mrp: number }): Promise<Product> => {
+    update: async (id: number, product: { name: string; brand: string; mrp: number }): Promise<Product> => {
       const response = await fetch(`${API_BASE_URL}/products/${id}`, {
         method: 'PUT',
         headers: getHeaders(),
@@ -199,9 +199,9 @@ export const api = {
 
     /**
      * Delete a product
-     * @param id Product UUID
+     * @param id Product ID
      */
-    delete: async (id: string): Promise<void> => {
+    delete: async (id: number): Promise<void> => {
       const response = await fetch(`${API_BASE_URL}/products/${id}`, {
         method: 'DELETE',
         headers: getHeaders(),
@@ -236,7 +236,7 @@ export const api = {
      * @param outletId Optional outlet filter (ADMIN only, ignored for REFILLER)
      * @returns Array of stock entries
      */
-    getAll: async (outletId?: string): Promise<StockEntry[]> => {
+    getAll: async (outletId?: number): Promise<StockEntry[]> => {
       const query = outletId ? `?outletId=${outletId}` : '';
       const response = await fetch(`${API_BASE_URL}/stock-in${query}`, {
         method: 'GET',
@@ -265,7 +265,7 @@ export const api = {
      * @param batchName Optional custom name for the batch
      * @param isChecked Optional checked status
      */
-    updateBatch: async (batchId: string, batchName?: string, isChecked?: boolean): Promise<void> => {
+    updateBatch: async (batchId: number, batchName?: string, isChecked?: boolean): Promise<void> => {
       const response = await fetch(`${API_BASE_URL}/stock-in/batch`, {
         method: 'PATCH',
         headers: getHeaders(),
@@ -278,7 +278,7 @@ export const api = {
      * Delete an entire batch by batch ID (ADMIN only)
      * @param batchId Batch ID to delete
      */
-    deleteBatch: async (batchId: string): Promise<void> => {
+    deleteBatch: async (batchId: number): Promise<void> => {
       const response = await fetch(`${API_BASE_URL}/stock-in/batch/${batchId}`, {
         method: 'DELETE',
         headers: getHeaders(),
@@ -296,7 +296,7 @@ export const api = {
      * @param outletId Optional outlet filter (ADMIN only, ignored for REFILLER)
      * @returns Array of stock out entries
      */
-    getAll: async (outletId?: string): Promise<StockOutEntry[]> => {
+    getAll: async (outletId?: number): Promise<StockOutEntry[]> => {
       const query = outletId ? `?outletId=${outletId}` : '';
       const response = await fetch(`${API_BASE_URL}/stock-out${query}`, {
         method: 'GET',

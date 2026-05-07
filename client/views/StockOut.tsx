@@ -46,6 +46,8 @@ const StockOut: React.FC<StockOutProps> = ({
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationItems, setConfirmationItems] = useState<ConfirmationItem[]>([]);
 
+  const createTempId = () => -(Date.now() + Math.floor(Math.random() * 1000));
+
   const productsByBrand = useMemo(() => {
     const grouped: Record<string, Product[]> = {};
     products.forEach(p => {
@@ -76,7 +78,7 @@ const StockOut: React.FC<StockOutProps> = ({
     return result;
   }, [productsByBrand, user.outletId, stockEntries, stockOutEntries, searchQuery]);
 
-  const handleInputChange = (productId: string, value: string) => {
+  const handleInputChange = (productId: number, value: string) => {
     // Sanitize input - no decimals for quantity
     const sanitized = sanitizeNumberInput(value, false);
     
@@ -106,10 +108,11 @@ const StockOut: React.FC<StockOutProps> = ({
     let error = '';
 
     (Object.entries(formData) as [string, string][]).forEach(([productId, qtyStr]) => {
+      const numericProductId = Number(productId);
       const qty = parseFloat(qtyStr);
       if (qty > 0) {
-        const available = getAvailableStock(productId, user.outletId!, stockEntries, stockOutEntries);
-        const product = products.find(p => p.id === productId);
+        const available = getAvailableStock(numericProductId, user.outletId!, stockEntries, stockOutEntries);
+        const product = products.find(p => p.id === numericProductId);
         if (qty > available) {
           error = `Cannot remove ${qty} of ${product?.name}. Only ${available} available.`;
           return;
@@ -145,12 +148,13 @@ const StockOut: React.FC<StockOutProps> = ({
     const newStockOuts: StockOutEntry[] = [];
 
     (Object.entries(formData) as [string, string][]).forEach(([productId, qtyStr]) => {
+      const numericProductId = Number(productId);
       const qty = parseFloat(qtyStr);
       if (qty > 0) {
         newStockOuts.push({
-          id: `so-${Math.random().toString(36).substr(2, 9)}`,
+          id: createTempId(),
           outletId: user.outletId!,
-          productId,
+          productId: numericProductId,
           quantity: qty,
           date: entryDate,
           reason: 'Sale',
