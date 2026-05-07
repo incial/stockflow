@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "audit_logs", indexes = {
@@ -20,11 +19,11 @@ import java.util.UUID;
 public class AuditLog {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
     
     @Column(nullable = false)
-    private UUID userId;
+    private Long userId;
     
     @Column(nullable = false)
     private String userName;
@@ -43,7 +42,7 @@ public class AuditLog {
     private String entityType;
     
     @Column
-    private UUID entityId;
+    private Long entityId;
     
     @Column(columnDefinition = "TEXT")
     private String details;

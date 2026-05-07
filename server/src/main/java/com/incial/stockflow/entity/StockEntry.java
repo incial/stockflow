@@ -11,7 +11,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(
@@ -40,8 +39,8 @@ import java.util.UUID;
 public class StockEntry {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     // -----------------------------
     // Relations
@@ -73,7 +72,7 @@ public class StockEntry {
     private LocalDate entryDate;
 
     @Column(name = "batch_id")
-    private UUID batchId;
+    private Long batchId;
 
     @Column(name = "batch_name")
     private String batchName;

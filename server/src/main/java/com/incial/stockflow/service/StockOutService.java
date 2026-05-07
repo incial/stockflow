@@ -9,6 +9,8 @@ import com.incial.stockflow.exception.ForbiddenException;
 import com.incial.stockflow.repository.StockEntryRepository;
 import com.incial.stockflow.repository.StockOutEntryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,11 +19,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class StockOutService {
+    private static final int DEFAULT_PAGE_SIZE = 200;
+    private static final int MAX_PAGE_SIZE = 500;
 
     private final StockOutEntryRepository stockOutEntryRepository;
     private final StockEntryRepository stockEntryRepository;
@@ -35,9 +38,15 @@ public class StockOutService {
 
     @Transactional(readOnly = true)
     public List<StockOutEntryResponse> getStockOutEntries(
-            UUID outletId,
+            Long outletId,
+            Integer page,
+            Integer size,
             User currentUser
     ) {
+        Pageable pageable = PageRequest.of(
+                Math.max(page != null ? page : 0, 0),
+                Math.min(Math.max(size != null ? size : DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE)
+        );
 
         List<StockOutEntry> entries;
 
@@ -47,14 +56,15 @@ public class StockOutService {
             }
             entries = stockOutEntryRepository
                     .findByOutletIdOrderByDateDescCreatedAtDesc(
-                            currentUser.getOutlet().getId()
+                            currentUser.getOutlet().getId(),
+                            pageable
                     );
         } else {
             entries = outletId != null
                     ? stockOutEntryRepository
-                    .findByOutletIdOrderByDateDescCreatedAtDesc(outletId)
+                    .findByOutletIdOrderByDateDescCreatedAtDesc(outletId, pageable)
                     : stockOutEntryRepository
-                    .findAllByOrderByDateDescCreatedAtDesc();
+                    .findAllByOrderByDateDescCreatedAtDesc(pageable);
         }
 
         return entries.stream()
@@ -72,7 +82,7 @@ public class StockOutService {
             User currentUser
     ) {
 
-        UUID effectiveOutletId = request.getOutletId();
+        Long effectiveOutletId = request.getOutletId();
 
         if (currentUser.getRole() == UserRole.REFILLER) {
             if (currentUser.getOutlet() == null) {
@@ -95,15 +105,15 @@ public class StockOutService {
             );
         }
 
-        List<UUID> productIds = request.getItems().stream()
+        List<Long> productIds = request.getItems().stream()
                 .map(StockOutItemRequest::getProductId)
                 .distinct()
                 .toList();
-        Map<UUID, Product> productsById = productService.getProductsByIds(productIds);
-        Map<UUID, Integer> availableStockByProductId = calculateAvailableStock(effectiveOutletId, productIds);
+        Map<Long, Product> productsById = productService.getProductsByIds(productIds);
+        Map<Long, Integer> availableStockByProductId = calculateAvailableStock(effectiveOutletId, productIds);
 
         List<StockOutEntry> entriesToSave = new ArrayList<>();
-        Map<UUID, Integer> requestedQuantityByProductId = new HashMap<>();
+        Map<Long, Integer> requestedQuantityByProductId = new HashMap<>();
         for (StockOutItemRequest item : request.getItems()) {
             Product product = productsById.get(item.getProductId());
             int totalRequestedQuantity = requestedQuantityByProductId.getOrDefault(item.getProductId(), 0)
@@ -163,17 +173,17 @@ public class StockOutService {
     // Helpers
     // -------------------------------------------------
 
-    private Map<UUID, Integer> calculateAvailableStock(UUID outletId, List<UUID> productIds) {
-        Map<UUID, Integer> totalStockInByProductId = new HashMap<>();
+    private Map<Long, Integer> calculateAvailableStock(Long outletId, List<Long> productIds) {
+        Map<Long, Integer> totalStockInByProductId = new HashMap<>();
         stockEntryRepository.totalStockInByOutletAndProductIds(outletId, productIds)
                 .forEach(total -> totalStockInByProductId.put(total.getProductId(), total.getTotalQuantity()));
 
-        Map<UUID, Integer> totalStockOutByProductId = new HashMap<>();
+        Map<Long, Integer> totalStockOutByProductId = new HashMap<>();
         stockOutEntryRepository.totalStockOutByOutletAndProductIds(outletId, productIds)
                 .forEach(total -> totalStockOutByProductId.put(total.getProductId(), total.getTotalQuantity()));
 
-        Map<UUID, Integer> availableStockByProductId = new HashMap<>();
-        for (UUID productId : productIds) {
+        Map<Long, Integer> availableStockByProductId = new HashMap<>();
+        for (Long productId : productIds) {
             int totalIn = totalStockInByProductId.getOrDefault(productId, 0);
             int totalOut = totalStockOutByProductId.getOrDefault(productId, 0);
             availableStockByProductId.put(productId, totalIn - totalOut);

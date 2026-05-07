@@ -7,12 +7,11 @@ import org.springframework.stereotype.Repository;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface ProductRepository extends JpaRepository<Product, UUID> {
+public interface ProductRepository extends JpaRepository<Product, Long> {
     Optional<Product> findByNameAndBrand(String name, String brand);
     boolean existsByNameAndBrand(String name, String brand);
     List<Product> findAllByOrderByBrandAscNameAsc();
-    List<Product> findByIdIn(Collection<UUID> ids);
+    List<Product> findByIdIn(Collection<Long> ids);
 }

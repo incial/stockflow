@@ -3,8 +3,6 @@ package com.incial.stockflow.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.UUID;
-
 @Entity
 @Table(name = "outlets", uniqueConstraints = {
     @UniqueConstraint(columnNames = "name")
@@ -17,8 +15,8 @@ import java.util.UUID;
 public class Outlet extends AuditableEntity {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
     
     @Column(nullable = false, unique = true)
     private String name;
