@@ -9,6 +9,8 @@ import com.incial.stockflow.exception.BusinessException;
 import com.incial.stockflow.exception.ForbiddenException;
 import com.incial.stockflow.repository.StockEntryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,11 +18,13 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
 public class StockInService {
+    private static final int DEFAULT_PAGE_SIZE = 200;
+    private static final int MAX_PAGE_SIZE = 500;
 
     private final StockEntryRepository stockEntryRepository;
     private final OutletService outletService;
@@ -32,7 +36,11 @@ public class StockInService {
     // ----------------------------------------------------------------
 
     @Transactional(readOnly = true)
-    public List<StockEntryResponse> getStockEntries(UUID outletId, User currentUser) {
+    public List<StockEntryResponse> getStockEntries(Long outletId, Integer page, Integer size, User currentUser) {
+        Pageable pageable = PageRequest.of(
+                Math.max(page != null ? page : 0, 0),
+                Math.min(Math.max(size != null ? size : DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE)
+        );
 
         List<StockEntry> entries;
 
@@ -44,17 +52,18 @@ public class StockInService {
 
             entries = stockEntryRepository
                     .findByOutletIdOrderByEntryDateDescCreatedAtDesc(
-                            currentUser.getOutlet().getId()
+                            currentUser.getOutlet().getId(),
+                            pageable
                     );
         }
         // ADMIN: filter or all
         else {
             if (outletId != null) {
                 entries = stockEntryRepository
-                        .findByOutletIdOrderByEntryDateDescCreatedAtDesc(outletId);
+                        .findByOutletIdOrderByEntryDateDescCreatedAtDesc(outletId, pageable);
             } else {
                 entries = stockEntryRepository
-                        .findAllByOrderByEntryDateDescCreatedAtDesc();
+                        .findAllByOrderByEntryDateDescCreatedAtDesc(pageable);
             }
         }
 
@@ -77,7 +86,7 @@ public class StockInService {
         // Outlet access validation
         // -----------------------------
 
-        UUID effectiveOutletId = request.getOutletId();
+        Long effectiveOutletId = request.getOutletId();
 
         if (currentUser.getRole() == UserRole.REFILLER) {
             if (currentUser.getOutlet() == null) {
@@ -117,15 +126,15 @@ public class StockInService {
         // Persist batch
         // -----------------------------
 
-        List<UUID> productIds = request.getItems().stream()
+        List<Long> productIds = request.getItems().stream()
                 .map(StockInItemRequest::getProductId)
                 .distinct()
                 .toList();
-        Map<UUID, Product> productsById = productService.getProductsByIds(productIds);
+        Map<Long, Product> productsById = productService.getProductsByIds(productIds);
 
         List<StockEntry> entriesToSave = new ArrayList<>();
         List<StockEntryResponse> responses = new ArrayList<>();
-        UUID batchId = UUID.randomUUID(); // Generate batch ID for this submission
+        Long batchId = generateBatchId();
 
         for (StockInItemRequest item : request.getItems()) {
             Product product = productsById.get(item.getProductId());
@@ -215,7 +224,7 @@ public class StockInService {
     // ----------------------------------------------------------------
 
     @Transactional
-    public void deleteBatch(UUID batchId, User currentUser) {
+    public void deleteBatch(Long batchId, User currentUser) {
         // Only ADMIN can delete batches
         if (currentUser.getRole() != UserRole.ADMIN) {
             throw new ForbiddenException("Only administrators can delete batches");
@@ -267,5 +276,16 @@ public class StockInService {
                 .isChecked(entry.getIsChecked())
                 .additionalData(entry.getAdditionalData())
                 .build();
+    }
+
+    private Long generateBatchId() {
+        for (int attempt = 0; attempt < 10; attempt++) {
+            long candidate = ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE);
+            if (!stockEntryRepository.existsByBatchId(candidate)) {
+                return candidate;
+            }
+        }
+
+        throw new IllegalStateException("Unable to generate a unique batch ID");
     }
 }

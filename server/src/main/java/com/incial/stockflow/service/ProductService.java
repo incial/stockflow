@@ -14,7 +14,6 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -27,16 +26,16 @@ public class ProductService {
         return productRepository.findAllByOrderByBrandAscNameAsc();
     }
 
-    public Product getProductById(UUID id) {
+    public Product getProductById(Long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
     }
 
-    public Map<UUID, Product> getProductsByIds(Collection<UUID> ids) {
-        Map<UUID, Product> productsById = new LinkedHashMap<>();
+    public Map<Long, Product> getProductsByIds(Collection<Long> ids) {
+        Map<Long, Product> productsById = new LinkedHashMap<>();
         productRepository.findByIdIn(ids).forEach(product -> productsById.put(product.getId(), product));
 
-        for (UUID id : ids) {
+        for (Long id : ids) {
             if (!productsById.containsKey(id)) {
                 throw new ResourceNotFoundException("Product not found with id: " + id);
             }
@@ -68,7 +67,7 @@ public class ProductService {
     }
 
     @Transactional
-    public Product updateProduct(UUID id, ProductRequest request, User currentUser) {
+    public Product updateProduct(Long id, ProductRequest request, User currentUser) {
         Product product = getProductById(id);
 
         // Check if updating to a name/brand combo that already exists (excluding current product)
@@ -93,7 +92,7 @@ public class ProductService {
     }
 
     @Transactional
-    public void deleteProduct(UUID id, User currentUser) {
+    public void deleteProduct(Long id, User currentUser) {
         Product product = getProductById(id);
 
         // Log the action before deletion

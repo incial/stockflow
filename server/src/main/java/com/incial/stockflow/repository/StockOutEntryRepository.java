@@ -1,22 +1,22 @@
 package com.incial.stockflow.repository;
 
 import com.incial.stockflow.entity.StockOutEntry;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.UUID;
 
-public interface StockOutEntryRepository extends JpaRepository<StockOutEntry, UUID> {
+public interface StockOutEntryRepository extends JpaRepository<StockOutEntry, Long> {
     interface ProductQuantityTotal {
-        UUID getProductId();
+        Long getProductId();
         int getTotalQuantity();
     }
 
-    List<StockOutEntry> findByOutletIdOrderByDateDescCreatedAtDesc(UUID outletId);
+    List<StockOutEntry> findByOutletIdOrderByDateDescCreatedAtDesc(Long outletId, Pageable pageable);
 
-    List<StockOutEntry> findAllByOrderByDateDescCreatedAtDesc();
+    List<StockOutEntry> findAllByOrderByDateDescCreatedAtDesc(Pageable pageable);
 
     @Query("""
         select coalesce(sum(so.quantity), 0)
@@ -24,7 +24,7 @@ public interface StockOutEntryRepository extends JpaRepository<StockOutEntry, UU
         where so.outlet.id = :outletId
           and so.product.id = :productId
     """)
-    int totalStockOut(UUID outletId, UUID productId);
+    int totalStockOut(Long outletId, Long productId);
 
     @Query("""
         select so.product.id as productId, coalesce(sum(so.quantity), 0) as totalQuantity
@@ -33,5 +33,5 @@ public interface StockOutEntryRepository extends JpaRepository<StockOutEntry, UU
           and so.product.id in :productIds
         group by so.product.id
     """)
-    List<ProductQuantityTotal> totalStockOutByOutletAndProductIds(UUID outletId, Collection<UUID> productIds);
+    List<ProductQuantityTotal> totalStockOutByOutletAndProductIds(Long outletId, Collection<Long> productIds);
 }

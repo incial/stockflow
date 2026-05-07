@@ -9,13 +9,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -25,7 +25,7 @@ public class AuditService {
     private static final int MAX_AUDIT_LOGS = 50;
 
     @Transactional
-    public void logAction(User user, String action, String entityType, UUID entityId, String details) {
+    public void logAction(User user, String action, String entityType, Long entityId, String details) {
         HttpServletRequest request = getCurrentHttpRequest();
 
         AuditLog auditLog = AuditLog.builder()
@@ -42,27 +42,16 @@ public class AuditService {
                 .build();
 
         auditLogRepository.save(auditLog);
-
-        // Clean up old audit logs, keeping only the latest MAX_AUDIT_LOGS
-        cleanupOldAuditLogs();
     }
 
     @Transactional
+    @Scheduled(fixedDelayString = "${audit.cleanup.fixed-delay-ms:900000}")
     public void cleanupOldAuditLogs() {
         long totalLogs = auditLogRepository.count();
 
         if (totalLogs > MAX_AUDIT_LOGS) {
-            // Calculate how many logs to delete
             int logsToDelete = (int) (totalLogs - MAX_AUDIT_LOGS);
-
-            // Get the oldest logs to delete using pagination
-            Pageable pageable = PageRequest.of(0, logsToDelete, Sort.by(Sort.Direction.ASC, "timestamp"));
-            List<AuditLog> oldestLogs = auditLogRepository.findAll(pageable).getContent();
-
-            // Delete the oldest logs
-            if (!oldestLogs.isEmpty()) {
-                auditLogRepository.deleteAll(oldestLogs);
-            }
+            auditLogRepository.deleteOldestLogs(logsToDelete);
         }
     }
 
