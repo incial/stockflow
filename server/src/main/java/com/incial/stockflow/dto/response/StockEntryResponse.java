@@ -6,19 +6,18 @@ import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.UUID;
 
 @Getter
 @Builder
 public class StockEntryResponse {
 
-    private UUID id;
-    private UUID outletId;
-    private UUID productId;
+    private Long id;
+    private Long outletId;
+    private Long productId;
     private Integer quantity;
     private BigDecimal amount;
     private LocalDate entryDate;
-    private UUID batchId;
+    private Long batchId;
     private String batchName;
     private Boolean isChecked;
     private JsonNode additionalData;

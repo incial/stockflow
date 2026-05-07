@@ -13,7 +13,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/stock-out")
@@ -24,11 +23,13 @@ public class StockOutController {
 
     @GetMapping
     public ResponseEntity<List<StockOutEntryResponse>> getStockOutEntries(
-            @RequestParam(required = false) UUID outletId,
+            @RequestParam(required = false) Long outletId,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "200") Integer size,
             @AuthenticationPrincipal User currentUser
     ) {
         return ResponseEntity.ok(
-                stockOutService.getStockOutEntries(outletId, currentUser)
+                stockOutService.getStockOutEntries(outletId, page, size, currentUser)
         );
     }
 

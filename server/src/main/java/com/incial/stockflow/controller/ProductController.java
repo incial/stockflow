@@ -36,18 +36,18 @@ public class ProductController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Product> updateProduct(
-            @PathVariable String id,
+            @PathVariable Long id,
             @Valid @RequestBody ProductRequest request,
             @AuthenticationPrincipal User currentUser) {
-        Product product = productService.updateProduct(java.util.UUID.fromString(id), request, currentUser);
+        Product product = productService.updateProduct(id, request, currentUser);
         return ResponseEntity.ok(product);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProduct(
-            @PathVariable String id,
+            @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
-        productService.deleteProduct(java.util.UUID.fromString(id), currentUser);
+        productService.deleteProduct(id, currentUser);
         return ResponseEntity.noContent().build();
     }
 }

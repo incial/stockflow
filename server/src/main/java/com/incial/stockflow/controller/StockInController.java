@@ -14,7 +14,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/stock-in")
@@ -25,11 +24,13 @@ public class StockInController {
 
     @GetMapping
     public ResponseEntity<List<StockEntryResponse>> getStockEntries(
-            @RequestParam(required = false) UUID outletId,
+            @RequestParam(required = false) Long outletId,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "200") Integer size,
             @AuthenticationPrincipal User currentUser
     ) {
         return ResponseEntity.ok(
-                stockInService.getStockEntries(outletId, currentUser)
+                stockInService.getStockEntries(outletId, page, size, currentUser)
         );
     }
 
@@ -63,7 +64,7 @@ public class StockInController {
 
     @DeleteMapping("/batch/{batchId}")
     public ResponseEntity<Void> deleteBatch(
-            @PathVariable UUID batchId,
+            @PathVariable Long batchId,
             @AuthenticationPrincipal User currentUser
     ) {
         stockInService.deleteBatch(batchId, currentUser);
