@@ -486,7 +486,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   };
 
   return (
-    <div className="space-y-8 pb-20 relative">
+    <div className="space-y-6 sm:space-y-8 pb-16 sm:pb-20 relative">
       
       {/* --- Modals --- */}
       {/* Confirmation Modal */}
@@ -595,14 +595,14 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
 
 
       {/* Header */}
-      <header className="glass-panel p-6 rounded-[32px] flex flex-col xl:flex-row xl:items-center justify-between gap-6 sticky top-4 z-20">
-        <div className="flex items-center gap-5">
-          <div className="bg-gradient-to-br from-indigo-500 to-violet-600 p-3.5 rounded-2xl text-white shadow-lg shadow-indigo-500/30">
-            <Store size={28} />
+      <header className="glass-panel p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] flex flex-col xl:flex-row xl:items-center justify-between gap-4 sm:gap-6 sticky top-2 sm:top-4 z-20">
+        <div className="flex items-center gap-4 sm:gap-5">
+          <div className="bg-gradient-to-br from-indigo-500 to-violet-600 p-3 sm:p-3.5 rounded-2xl text-white shadow-lg shadow-indigo-500/30">
+            <Store size={24} className="sm:w-7 sm:h-7" />
           </div>
           <div>
-            <h2 className="text-3xl font-light text-slate-800 tracking-tight">Stock Entry</h2>
-            <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+            <h2 className="text-2xl sm:text-3xl font-light text-slate-800 tracking-tight">Stock Entry</h2>
+            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-slate-500 mt-1">
                <span className="font-bold text-slate-700">{user.name}</span>
                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
                <span>{formatFullDate()}</span>
@@ -618,13 +618,13 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
               value={entryDate}
               max={new Date().toISOString().split('T')[0]}
               onChange={(e) => handleDateChange(e.target.value)}
-              className="w-full sm:w-auto pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold shadow-inner transition-all"
+              className="w-full sm:w-auto pl-12 pr-4 py-3 sm:py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold shadow-inner transition-all"
             />
           </div>
           
           <button 
             onClick={handleSave}
-            className="flex items-center justify-center gap-2 px-8 py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-black font-bold shadow-xl shadow-slate-900/20 transition-all hover:-translate-y-0.5 active:translate-y-0"
+            className="flex items-center justify-center gap-2 px-5 sm:px-8 py-3 sm:py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-black font-bold shadow-xl shadow-slate-900/20 transition-all hover:-translate-y-0.5 active:translate-y-0"
           >
             <Save size={20} />
             Submit Batch
@@ -640,7 +640,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           placeholder="Search products by name or brand…"
-          className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-2xl shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-medium text-slate-700 placeholder-slate-400 transition-all"
+          className="w-full pl-12 pr-10 py-3 sm:py-4 bg-white border border-slate-200 rounded-2xl shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-medium text-slate-700 placeholder-slate-400 transition-all"
         />
         {isSearching && (
           <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
@@ -649,7 +649,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
         )}
       </div>
 
-      <div className="bg-indigo-50/50 backdrop-blur-sm border border-indigo-100 p-5 rounded-[24px] flex items-start gap-4 text-indigo-800 text-sm">
+      <div className="bg-indigo-50/50 backdrop-blur-sm border border-indigo-100 p-4 sm:p-5 rounded-[20px] sm:rounded-[24px] flex items-start gap-3 sm:gap-4 text-indigo-800 text-sm">
         <div className="p-2 bg-indigo-100 rounded-full shrink-0">
             <Info size={18} />
         </div>
@@ -658,8 +658,8 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
 
       {/* Search Results Panel */}
       {isSearching && (
-        <div className="glass-panel rounded-[32px] overflow-hidden animate-in fade-in duration-200">
-          <div className="bg-slate-900/5 px-8 py-5 flex items-center gap-3 border-b border-white/10">
+        <div className="glass-panel rounded-[24px] sm:rounded-[32px] overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-slate-900/5 px-5 sm:px-8 py-4 sm:py-5 flex items-center gap-3 border-b border-white/10">
             <Search size={18} className="text-indigo-500" />
             <span className="text-slate-800 font-bold text-lg">
               {filteredProducts.length > 0
@@ -678,35 +678,35 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                    <th className="px-8 py-5 w-16">#</th>
-                    <th className="px-8 py-5 min-w-[180px]">Item Name</th>
-                    <th className="px-8 py-5 min-w-[120px]">Brand</th>
-                    <th className="px-8 py-5 w-36 text-center">MRP (₹)</th>
-                    <th className="px-8 py-5 w-40 text-center">Stock</th>
-                    <th className="px-8 py-5 w-48 text-center">Total Cost (₹)</th>
-                    <th className="px-8 py-5 w-24 text-center">Actions</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 w-16">#</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 min-w-[160px] sm:min-w-[180px]">Item Name</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 min-w-[110px] sm:min-w-[120px]">Brand</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 w-32 sm:w-36 text-center">MRP (₹)</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 w-32 sm:w-40 text-center">Stock</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 w-40 sm:w-48 text-center">Total Cost (₹)</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 w-20 sm:w-24 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50/50">
                   {filteredProducts.map((p, idx) => (
                     <tr key={p.id} className="hover:bg-slate-50/80 transition-colors group">
-                      <td className="px-8 py-4 text-xs text-slate-300 font-mono">{idx + 1}</td>
-                      <td className="px-8 py-4 text-sm font-semibold text-slate-700">{p.name}</td>
-                      <td className="px-8 py-4"><span className="text-xs font-bold bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full">{p.brand}</span></td>
-                      <td className="px-8 py-4 text-sm text-center font-mono text-slate-500">{p.mrp.toFixed(2)}</td>
-                      <td className="px-8 py-4">
+                      <td className="px-4 sm:px-8 py-4 text-xs text-slate-300 font-mono">{idx + 1}</td>
+                      <td className="px-4 sm:px-8 py-4 text-sm font-semibold text-slate-700">{p.name}</td>
+                      <td className="px-4 sm:px-8 py-4"><span className="text-xs font-bold bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full">{p.brand}</span></td>
+                      <td className="px-4 sm:px-8 py-4 text-sm text-center font-mono text-slate-500">{p.mrp.toFixed(2)}</td>
+                      <td className="px-4 sm:px-8 py-4">
                         <input type="number" placeholder="0" min="0" max="99999" step="1"
                           value={formData[p.id]?.qty || ''}
                           onChange={e => handleInputChange(p.id, 'qty', e.target.value)}
                           className="w-full text-center py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold transition-all" />
                       </td>
-                      <td className="px-8 py-4">
+                      <td className="px-4 sm:px-8 py-4">
                         <input type="number" placeholder="0.00" min="0" max="9999999.99" step="0.01"
                           value={formData[p.id]?.amt || ''}
                           onChange={e => handleInputChange(p.id, 'amt', e.target.value)}
                           className="w-full text-center py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold text-indigo-600 transition-all focus:bg-white" />
                       </td>
-                      <td className="px-8 py-4 text-center">
+                      <td className="px-4 sm:px-8 py-4 text-center">
                         <div className="flex items-center justify-center gap-2 opacity-30 group-hover:opacity-100 transition-opacity">
                           <button onClick={() => initiateEdit(p)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors" title="Edit Product"><Edit2 size={16} /></button>
                           <button onClick={() => setDeletingProduct(p)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Delete Product"><Trash2 size={16} /></button>
@@ -724,8 +724,8 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
       {/* Standard Product Tables – hidden while searching */}
       <div className={`space-y-8 ${isSearching ? 'hidden' : ''}`}>
         {(Object.entries(productsByBrand) as [string, Product[]][]).map(([brand, products]) => (
-          <div key={brand} className="glass-panel rounded-[32px] overflow-hidden">
-            <div className="bg-slate-900/5 px-8 py-5 flex items-center gap-3 border-b border-white/10">
+          <div key={brand} className="glass-panel rounded-[24px] sm:rounded-[32px] overflow-hidden">
+            <div className="bg-slate-900/5 px-5 sm:px-8 py-4 sm:py-5 flex items-center gap-3 border-b border-white/10">
               <Layers size={18} className="text-slate-500" />
               <span className="text-slate-800 font-bold tracking-wide text-lg">{brand}</span>
             </div>
@@ -733,22 +733,22 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                    <th className="px-8 py-5 w-16">#</th>
-                    <th className="px-8 py-5 min-w-[200px]">Item Name</th>
-                    <th className="px-8 py-5 w-40 text-center">MRP (₹)</th>
-                    <th className="px-8 py-5 w-40 text-center">Stock</th>
-                    <th className="px-8 py-5 w-48 text-center">Total Cost (₹)</th>
-                    <th className="px-8 py-5 w-24 text-center">Actions</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 w-16">#</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 min-w-[180px] sm:min-w-[200px]">Item Name</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 w-32 sm:w-40 text-center">MRP (₹)</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 w-32 sm:w-40 text-center">Stock</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 w-40 sm:w-48 text-center">Total Cost (₹)</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 w-20 sm:w-24 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50/50">
                   {/* Existing Products */}
                   {products.map((p, idx) => (
                     <tr key={p.id} className="hover:bg-slate-50/80 transition-colors group">
-                      <td className="px-8 py-4 text-xs text-slate-300 font-mono">{idx + 1}</td>
-                      <td className="px-8 py-4 text-sm font-semibold text-slate-700">{p.name}</td>
-                      <td className="px-8 py-4 text-sm text-center font-mono text-slate-500">{p.mrp.toFixed(2)}</td>
-                      <td className="px-8 py-4">
+                      <td className="px-4 sm:px-8 py-4 text-xs text-slate-300 font-mono">{idx + 1}</td>
+                      <td className="px-4 sm:px-8 py-4 text-sm font-semibold text-slate-700">{p.name}</td>
+                      <td className="px-4 sm:px-8 py-4 text-sm text-center font-mono text-slate-500">{p.mrp.toFixed(2)}</td>
+                      <td className="px-4 sm:px-8 py-4">
                         <input 
                           type="number"
                           placeholder="0"
@@ -760,7 +760,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                           className="w-full text-center py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold transition-all"
                         />
                       </td>
-                      <td className="px-8 py-4">
+                      <td className="px-4 sm:px-8 py-4">
                         <input 
                           type="number"
                           placeholder="0.00"
@@ -772,7 +772,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
                           className="w-full text-center py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold text-indigo-600 transition-all focus:bg-white"
                         />
                       </td>
-                      <td className="px-8 py-4 text-center">
+                      <td className="px-4 sm:px-8 py-4 text-center">
                         <div className="flex items-center justify-center gap-2 opacity-30 group-hover:opacity-100 transition-opacity">
                             <button 
                                 onClick={() => initiateEdit(p)}

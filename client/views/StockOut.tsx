@@ -186,7 +186,7 @@ const StockOut: React.FC<StockOutProps> = ({
   };
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-6 sm:space-y-8 pb-16 sm:pb-20">
       {/* Confirmation Modal */}
       <ConfirmationModal
         isOpen={showConfirmation}
@@ -201,14 +201,14 @@ const StockOut: React.FC<StockOutProps> = ({
       />
 
       {/* Header */}
-      <header className="glass-panel p-6 rounded-[32px] flex flex-col xl:flex-row xl:items-center justify-between gap-6 sticky top-4 z-20">
-        <div className="flex items-center gap-5">
-          <div className="bg-gradient-to-br from-rose-500 to-pink-600 p-3.5 rounded-2xl text-white shadow-lg shadow-rose-500/30">
-            <PackageMinus size={28} />
+      <header className="glass-panel p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] flex flex-col xl:flex-row xl:items-center justify-between gap-4 sm:gap-6 sticky top-2 sm:top-4 z-20">
+        <div className="flex items-center gap-4 sm:gap-5">
+          <div className="bg-gradient-to-br from-rose-500 to-pink-600 p-3 sm:p-3.5 rounded-2xl text-white shadow-lg shadow-rose-500/30">
+            <PackageMinus size={24} className="sm:w-7 sm:h-7" />
           </div>
           <div>
-            <h2 className="text-3xl font-light text-slate-800 tracking-tight">Stock Out</h2>
-            <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+            <h2 className="text-2xl sm:text-3xl font-light text-slate-800 tracking-tight">Stock Out</h2>
+            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-slate-500 mt-1">
                <span className="font-bold text-slate-700">{user.name}</span>
                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
                <span>{formatFullDate()}</span>
@@ -224,7 +224,7 @@ const StockOut: React.FC<StockOutProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search available inventory..."
-              className="w-full pl-12 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none text-sm font-medium transition-all"
+              className="w-full pl-12 pr-12 py-3 sm:py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none text-sm font-medium transition-all"
             />
             {searchQuery && (
               <button 
@@ -245,13 +245,13 @@ const StockOut: React.FC<StockOutProps> = ({
               value={entryDate}
               max={new Date().toISOString().split('T')[0]}
               onChange={(e) => handleDateChange(e.target.value)}
-              className="w-full sm:w-auto pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none text-sm font-bold shadow-sm"
+              className="w-full sm:w-auto pl-12 pr-4 py-3 sm:py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none text-sm font-bold shadow-sm"
             />
           </div>
           
           <button 
             onClick={handleSave}
-            className="flex items-center justify-center gap-2 px-8 py-3.5 bg-rose-600 text-white rounded-2xl hover:bg-rose-700 font-bold shadow-xl shadow-rose-500/30 transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            className="flex items-center justify-center gap-2 px-5 sm:px-8 py-3 sm:py-3.5 bg-rose-600 text-white rounded-2xl hover:bg-rose-700 font-bold shadow-xl shadow-rose-500/30 transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             disabled={availableInventory.length === 0}
           >
             <Save size={20} />
@@ -260,7 +260,7 @@ const StockOut: React.FC<StockOutProps> = ({
         </div>
       </header>
 
-      <div className="bg-rose-50/50 backdrop-blur-sm border border-rose-100 p-5 rounded-[24px] flex items-start gap-4 text-rose-800 text-sm">
+      <div className="bg-rose-50/50 backdrop-blur-sm border border-rose-100 p-4 sm:p-5 rounded-[20px] sm:rounded-[24px] flex items-start gap-3 sm:gap-4 text-rose-800 text-sm">
         <div className="p-2 bg-rose-100 rounded-full shrink-0">
             <Info size={18} />
         </div>
@@ -270,8 +270,8 @@ const StockOut: React.FC<StockOutProps> = ({
       <div className="space-y-6">
         {availableInventory.length > 0 ? (
           availableInventory.map(({ brand, items }) => (
-            <div key={brand} className="glass-panel rounded-[32px] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="bg-slate-900/5 px-8 py-5 flex items-center gap-3 border-b border-white/10">
+            <div key={brand} className="glass-panel rounded-[24px] sm:rounded-[32px] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-slate-900/5 px-5 sm:px-8 py-4 sm:py-5 flex items-center gap-3 border-b border-white/10">
                 <Layers size={18} className="text-slate-500" />
                 <span className="text-slate-800 font-bold tracking-wide text-lg">{brand}</span>
               </div>
@@ -279,11 +279,11 @@ const StockOut: React.FC<StockOutProps> = ({
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                      <th className="px-8 py-5 w-16">#</th>
-                      <th className="px-8 py-5 min-w-[200px]">Item Name</th>
-                      <th className="px-8 py-5 w-40 text-center">MRP (₹)</th>
-                      <th className="px-8 py-5 w-40 text-center">Available</th>
-                      <th className="px-8 py-5 w-48 text-center">Qty Out</th>
+                      <th className="px-4 sm:px-8 py-4 sm:py-5 w-16">#</th>
+                      <th className="px-4 sm:px-8 py-4 sm:py-5 min-w-[180px] sm:min-w-[200px]">Item Name</th>
+                      <th className="px-4 sm:px-8 py-4 sm:py-5 w-32 sm:w-40 text-center">MRP (₹)</th>
+                      <th className="px-4 sm:px-8 py-4 sm:py-5 w-32 sm:w-40 text-center">Available</th>
+                      <th className="px-4 sm:px-8 py-4 sm:py-5 w-40 sm:w-48 text-center">Qty Out</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50/50">
@@ -295,15 +295,15 @@ const StockOut: React.FC<StockOutProps> = ({
                       );
                       return (
                         <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="px-8 py-4 text-xs text-slate-300 font-mono">{idx + 1}</td>
-                          <td className="px-8 py-4 text-sm font-semibold text-slate-700">{p.name}</td>
-                          <td className="px-8 py-4 text-sm text-center font-mono text-slate-500">{p.mrp.toFixed(2)}</td>
-                          <td className="px-8 py-4 text-center">
+                          <td className="px-4 sm:px-8 py-4 text-xs text-slate-300 font-mono">{idx + 1}</td>
+                          <td className="px-4 sm:px-8 py-4 text-sm font-semibold text-slate-700">{p.name}</td>
+                          <td className="px-4 sm:px-8 py-4 text-sm text-center font-mono text-slate-500">{p.mrp.toFixed(2)}</td>
+                          <td className="px-4 sm:px-8 py-4 text-center">
                             <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-emerald-100/80 text-emerald-700 border border-emerald-200">
                               {available} units
                             </span>
                           </td>
-                          <td className="px-8 py-4">
+                          <td className="px-4 sm:px-8 py-4">
                             <input 
                               type="number"
                               placeholder="0"
@@ -324,7 +324,7 @@ const StockOut: React.FC<StockOutProps> = ({
             </div>
           ))
         ) : (
-          <div className="glass-panel p-20 text-center rounded-[32px] animate-in fade-in zoom-in duration-300">
+          <div className="glass-panel p-12 sm:p-20 text-center rounded-[24px] sm:rounded-[32px] animate-in fade-in zoom-in duration-300">
              <div className="inline-flex items-center justify-center w-20 h-20 bg-slate-50 rounded-full mb-6 shadow-sm">
                 {searchQuery ? <Search size={40} className="text-slate-300" /> : <PackageOpen size={40} className="text-slate-300" />}
              </div>
