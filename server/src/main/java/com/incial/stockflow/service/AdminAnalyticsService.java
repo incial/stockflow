@@ -20,11 +20,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -32,6 +35,7 @@ import java.util.Map;
 public class AdminAnalyticsService {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final int MAX_INVENTORY_PAGE_SIZE = 100;
 
     private final StockEntryRepository stockEntryRepository;
     private final StockOutEntryRepository stockOutEntryRepository;
@@ -96,8 +100,20 @@ public class AdminAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public AdminInventoryResponse getInventory(User currentUser, Long outletId) {
+    public AdminInventoryResponse getInventory(
+            User currentUser,
+            Long outletId,
+            String tab,
+            int page,
+            int size,
+            String search
+    ) {
         requireAdmin(currentUser);
+
+        String normalizedTab = "history".equalsIgnoreCase(tab) ? "history" : "levels";
+        String normalizedSearch = search != null ? search.trim().toLowerCase(Locale.ROOT) : "";
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), MAX_INVENTORY_PAGE_SIZE);
 
         List<StockEntry> stockEntries = outletId != null
                 ? stockEntryRepository.findByOutletIdWithProductAndOutletOrderByEntryDateDescCreatedAtDesc(outletId)
@@ -143,6 +159,7 @@ public class AdminAnalyticsService {
                         .totalOut(accumulator.totalOut)
                         .available(accumulator.available)
                         .build())
+                .filter(row -> matchesInventoryLevel(row, normalizedSearch))
                 .toList();
 
         List<AdminInventoryResponse.InventoryMovementResponse> historyLog = stockOutEntries.stream()
@@ -159,22 +176,64 @@ public class AdminAnalyticsService {
                         .userName(entry.getEnteredBy().getName())
                         .createdAt(entry.getCreatedAt().format(DATE_TIME_FORMATTER))
                         .build())
+                .filter(log -> matchesInventoryHistory(log, normalizedSearch))
                 .toList();
+
+        int safeResolvedSize = safeSize;
+        List<AdminInventoryResponse.InventoryLevelResponse> pagedInventoryLevels =
+                "levels".equals(normalizedTab)
+                        ? paginate(inventoryLevels, safePage, safeResolvedSize)
+                        : List.of();
+        List<AdminInventoryResponse.InventoryMovementResponse> pagedHistoryLog =
+                "history".equals(normalizedTab)
+                        ? paginate(historyLog, safePage, safeResolvedSize)
+                        : List.of();
+
+        long totalElements = "history".equals(normalizedTab) ? historyLog.size() : inventoryLevels.size();
+        int totalPages = totalElements == 0 ? 0 : (int) Math.ceil((double) totalElements / safeResolvedSize);
 
         return AdminInventoryResponse.builder()
                 .outlets(getOutletSummaries())
-                .inventoryLevels(inventoryLevels)
-                .historyLog(historyLog)
+                .activeTab(normalizedTab)
+                .page(safePage)
+                .size(safeResolvedSize)
+                .totalElements(totalElements)
+                .totalPages(totalPages)
+                .search(normalizedSearch)
+                .inventoryLevels(pagedInventoryLevels)
+                .historyLog(pagedHistoryLog)
                 .build();
     }
 
     @Transactional(readOnly = true)
-    public AdminReportsResponse getReports(User currentUser, Long outletId) {
+    public AdminReportsResponse getReports(User currentUser, Long outletId, String date) {
         requireAdmin(currentUser);
 
-        List<StockEntry> entries = outletId != null
-                ? stockEntryRepository.findByOutletIdWithProductAndOutletOrderByEntryDateDescCreatedAtDesc(outletId)
-                : stockEntryRepository.findAllWithProductAndOutletOrderByEntryDateDescCreatedAtDesc();
+        List<AdminReportsResponse.ReportDateSummaryResponse> dateSummaries = stockEntryRepository.findReportDateSummaries(outletId).stream()
+                .map(summary -> AdminReportsResponse.ReportDateSummaryResponse.builder()
+                        .date(summary.getEntryDate().format(DATE_FORMATTER))
+                        .batchCount(Math.toIntExact(summary.getBatchCount()))
+                        .itemCount(Math.toIntExact(summary.getItemCount()))
+                        .totalAmount(summary.getTotalAmount())
+                        .build())
+                .toList();
+
+        String selectedDate = resolveSelectedDate(dateSummaries, date);
+        boolean includeBatchDetails = date != null && !date.isBlank();
+        List<AdminReportsResponse.ReportBatchResponse> batches = !includeBatchDetails || selectedDate == null
+                ? List.of()
+                : getReportBatches(outletId, LocalDate.parse(selectedDate, DATE_FORMATTER));
+
+        return AdminReportsResponse.builder()
+                .outlets(getOutletSummaries())
+                .dates(dateSummaries)
+                .selectedDate(selectedDate)
+                .batches(batches)
+                .build();
+    }
+
+    private List<AdminReportsResponse.ReportBatchResponse> getReportBatches(Long outletId, LocalDate entryDate) {
+        List<StockEntry> entries = stockEntryRepository.findReportEntriesByOutletIdAndEntryDate(outletId, entryDate);
 
         Map<Long, List<StockEntry>> entriesByBatchId = new LinkedHashMap<>();
         for (StockEntry entry : entries) {
@@ -189,29 +248,11 @@ public class AdminAnalyticsService {
                 .sorted(Comparator.comparing(AdminReportsResponse.ReportBatchResponse::getCreatedAt).reversed())
                 .toList();
 
-        Map<String, List<AdminReportsResponse.ReportBatchResponse>> batchesByDate = new LinkedHashMap<>();
-        for (AdminReportsResponse.ReportBatchResponse batch : batches) {
-            batchesByDate.computeIfAbsent(batch.getEntryDate(), ignored -> new ArrayList<>()).add(batch);
+        for (int index = 0; index < batches.size(); index++) {
+            batches.get(index).setBatchNumber(index + 1);
         }
 
-        List<AdminReportsResponse.ReportDateGroupResponse> dateGroups = new ArrayList<>();
-        batchesByDate.entrySet().stream()
-                .sorted(Map.Entry.<String, List<AdminReportsResponse.ReportBatchResponse>>comparingByKey().reversed())
-                .forEach(entry -> {
-                    List<AdminReportsResponse.ReportBatchResponse> dateBatches = entry.getValue();
-                    for (int index = 0; index < dateBatches.size(); index++) {
-                        dateBatches.get(index).setBatchNumber(index + 1);
-                    }
-                    dateGroups.add(AdminReportsResponse.ReportDateGroupResponse.builder()
-                            .date(entry.getKey())
-                            .batches(dateBatches)
-                            .build());
-                });
-
-        return AdminReportsResponse.builder()
-                .outlets(getOutletSummaries())
-                .dates(dateGroups)
-                .build();
+        return batches;
     }
 
     private AdminReportsResponse.ReportBatchResponse toBatchResponse(Long batchId, List<StockEntry> batchEntries) {
@@ -282,6 +323,61 @@ public class AdminAnalyticsService {
         if (currentUser.getRole() != UserRole.ADMIN) {
             throw new ForbiddenException("Only administrators can access this resource");
         }
+    }
+
+    private String resolveSelectedDate(
+            List<AdminReportsResponse.ReportDateSummaryResponse> dateSummaries,
+            String requestedDate
+    ) {
+        if (dateSummaries.isEmpty()) {
+            return null;
+        }
+
+        if (requestedDate == null || requestedDate.isBlank()) {
+            return dateSummaries.get(0).getDate();
+        }
+
+        try {
+            String normalizedDate = LocalDate.parse(requestedDate, DATE_FORMATTER).format(DATE_FORMATTER);
+            boolean exists = dateSummaries.stream().anyMatch(summary -> summary.getDate().equals(normalizedDate));
+            return exists ? normalizedDate : dateSummaries.get(0).getDate();
+        } catch (DateTimeParseException exception) {
+            return dateSummaries.get(0).getDate();
+        }
+    }
+
+    private boolean matchesInventoryLevel(
+            AdminInventoryResponse.InventoryLevelResponse row,
+            String search
+    ) {
+        if (search == null || search.isBlank()) {
+            return true;
+        }
+
+        return row.getProductName().toLowerCase(Locale.ROOT).contains(search)
+                || row.getBrand().toLowerCase(Locale.ROOT).contains(search)
+                || row.getOutletName().toLowerCase(Locale.ROOT).contains(search);
+    }
+
+    private boolean matchesInventoryHistory(
+            AdminInventoryResponse.InventoryMovementResponse row,
+            String search
+    ) {
+        if (search == null || search.isBlank()) {
+            return true;
+        }
+
+        return row.getProductName().toLowerCase(Locale.ROOT).contains(search)
+                || row.getBrand().toLowerCase(Locale.ROOT).contains(search)
+                || row.getOutletName().toLowerCase(Locale.ROOT).contains(search)
+                || row.getUserName().toLowerCase(Locale.ROOT).contains(search)
+                || row.getReason().toLowerCase(Locale.ROOT).contains(search);
+    }
+
+    private <T> List<T> paginate(List<T> items, int page, int size) {
+        int fromIndex = Math.min(page * size, items.size());
+        int toIndex = Math.min(fromIndex + size, items.size());
+        return items.subList(fromIndex, toIndex);
     }
 
     private String inventoryKey(Long outletId, Long productId) {

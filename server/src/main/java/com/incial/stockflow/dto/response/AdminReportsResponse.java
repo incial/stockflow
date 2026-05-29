@@ -16,16 +16,20 @@ import java.util.List;
 @Builder
 public class AdminReportsResponse {
     private List<OutletSummaryResponse> outlets;
-    private List<ReportDateGroupResponse> dates;
+    private List<ReportDateSummaryResponse> dates;
+    private String selectedDate;
+    private List<ReportBatchResponse> batches;
 
     @Getter
     @Setter
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class ReportDateGroupResponse {
+    public static class ReportDateSummaryResponse {
         private String date;
-        private List<ReportBatchResponse> batches;
+        private Integer batchCount;
+        private Integer itemCount;
+        private BigDecimal totalAmount;
     }
 
     @Getter

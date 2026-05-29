@@ -127,6 +127,12 @@ export interface InventoryHistoryItem {
 
 export interface AdminInventoryData {
   outlets: Outlet[];
+  activeTab: 'levels' | 'history';
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  search: string;
   inventoryLevels: InventoryLevel[];
   historyLog: InventoryHistoryItem[];
 }
@@ -158,12 +164,16 @@ export interface ReportBatch {
   entries: ReportBatchEntry[];
 }
 
-export interface ReportDateGroup {
+export interface ReportDateSummary {
   date: string;
-  batches: ReportBatch[];
+  batchCount: number;
+  itemCount: number;
+  totalAmount: number;
 }
 
 export interface AdminReportsData {
   outlets: Outlet[];
-  dates: ReportDateGroup[];
+  dates: ReportDateSummary[];
+  selectedDate: string | null;
+  batches: ReportBatch[];
 }

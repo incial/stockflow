@@ -1,15 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AdminInventoryData } from '../types';
-import { api } from '../services/api';
-import { formatDate } from '../utils/calculations';
-import { Filter, History, Layers, Loader2, Search, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight, Filter, History, Layers, Loader2, Search, X } from 'lucide-react';
 import { CustomSelect } from '../components/CustomSelect';
 import { useToast } from '../context/ToastContext';
+import { api } from '../services/api';
+import { AdminInventoryData } from '../types';
+import { formatDate } from '../utils/calculations';
 
 type Tab = 'levels' | 'history';
 
+const PAGE_SIZE = 20;
+
 const emptyInventoryData: AdminInventoryData = {
   outlets: [],
+  activeTab: 'levels',
+  page: 0,
+  size: PAGE_SIZE,
+  totalElements: 0,
+  totalPages: 0,
+  search: '',
   inventoryLevels: [],
   historyLog: []
 };
@@ -17,7 +25,9 @@ const emptyInventoryData: AdminInventoryData = {
 const InventoryReport: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('levels');
   const [filterOutlet, setFilterOutlet] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [page, setPage] = useState(0);
   const [data, setData] = useState<AdminInventoryData>(emptyInventoryData);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
@@ -26,7 +36,13 @@ const InventoryReport: React.FC = () => {
     const loadInventory = async () => {
       try {
         setLoading(true);
-        setData(await api.admin.getInventory(filterOutlet ? Number(filterOutlet) : undefined));
+        setData(await api.admin.getInventory(
+          filterOutlet ? Number(filterOutlet) : undefined,
+          activeTab,
+          page,
+          PAGE_SIZE,
+          appliedSearch || undefined
+        ));
       } catch (error: any) {
         addToast(error.message || 'Failed to load inventory', 'error');
       } finally {
@@ -35,40 +51,30 @@ const InventoryReport: React.FC = () => {
     };
 
     loadInventory();
-  }, [filterOutlet, addToast]);
-
-  const inventoryLevels = useMemo(() => {
-    const lowerQuery = searchQuery.toLowerCase().trim();
-    if (!lowerQuery) {
-      return data.inventoryLevels;
-    }
-
-    return data.inventoryLevels.filter(row =>
-      row.productName.toLowerCase().includes(lowerQuery) ||
-      row.brand.toLowerCase().includes(lowerQuery) ||
-      row.outletName.toLowerCase().includes(lowerQuery)
-    );
-  }, [data.inventoryLevels, searchQuery]);
-
-  const historyLog = useMemo(() => {
-    const lowerQuery = searchQuery.toLowerCase().trim();
-    if (!lowerQuery) {
-      return data.historyLog;
-    }
-
-    return data.historyLog.filter(log =>
-      log.productName.toLowerCase().includes(lowerQuery) ||
-      log.brand.toLowerCase().includes(lowerQuery) ||
-      log.outletName.toLowerCase().includes(lowerQuery) ||
-      log.userName.toLowerCase().includes(lowerQuery) ||
-      log.reason.toLowerCase().includes(lowerQuery)
-    );
-  }, [data.historyLog, searchQuery]);
+  }, [filterOutlet, activeTab, page, appliedSearch, addToast]);
 
   const outletOptions = [
     { value: '', label: 'All Outlets' },
-    ...data.outlets.map(outlet => ({ value: String(outlet.id), label: outlet.name }))
+    ...data.outlets.map((outlet) => ({ value: String(outlet.id), label: outlet.name }))
   ];
+
+  const handleSearch = () => {
+    setPage(0);
+    setAppliedSearch(searchInput.trim());
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setAppliedSearch('');
+    setPage(0);
+  };
+
+  const safePage = Number.isFinite(data.page) && data.page >= 0 ? data.page : 0;
+  const safeSize = Number.isFinite(data.size) && data.size > 0 ? data.size : PAGE_SIZE;
+  const safeTotalElements = Number.isFinite(data.totalElements) && data.totalElements >= 0 ? data.totalElements : 0;
+  const safeTotalPages = Number.isFinite(data.totalPages) && data.totalPages >= 0 ? data.totalPages : 0;
+  const showingFrom = safeTotalElements === 0 ? 0 : (safePage * safeSize) + 1;
+  const showingTo = safeTotalElements === 0 ? 0 : Math.min((safePage + 1) * safeSize, safeTotalElements);
 
   if (loading) {
     return (
@@ -92,14 +98,14 @@ const InventoryReport: React.FC = () => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
             <input
               type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search..."
               className="w-full pl-12 pr-10 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-medium transition-all shadow-sm"
             />
-            {searchQuery && (
+            {searchInput && (
               <button
-                onClick={() => setSearchQuery('')}
+                onClick={handleClearSearch}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
               >
                 <X size={14} />
@@ -109,16 +115,30 @@ const InventoryReport: React.FC = () => {
 
           <CustomSelect
             value={filterOutlet}
-            onChange={setFilterOutlet}
+            onChange={(value) => {
+              setFilterOutlet(value);
+              setPage(0);
+            }}
             options={outletOptions}
             icon={<Filter size={18} />}
           />
+
+          <button
+            onClick={handleSearch}
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-500/20 transition-all"
+          >
+            <Search size={18} />
+            Search
+          </button>
         </div>
       </header>
 
       <div className="flex p-1 bg-white/40 backdrop-blur-md rounded-2xl border border-white/20 w-fit">
         <button
-          onClick={() => setActiveTab('levels')}
+          onClick={() => {
+            setActiveTab('levels');
+            setPage(0);
+          }}
           className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
             activeTab === 'levels'
               ? 'bg-white shadow-md text-indigo-600'
@@ -129,7 +149,10 @@ const InventoryReport: React.FC = () => {
           Stock Levels
         </button>
         <button
-          onClick={() => setActiveTab('history')}
+          onClick={() => {
+            setActiveTab('history');
+            setPage(0);
+          }}
           className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
             activeTab === 'history'
               ? 'bg-white shadow-md text-indigo-600'
@@ -139,6 +162,34 @@ const InventoryReport: React.FC = () => {
           <History size={16} />
           Movement Log
         </button>
+      </div>
+
+      <div className="glass-panel px-4 py-3 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="text-sm text-slate-500">
+          {appliedSearch ? `Search: "${appliedSearch}" • ` : ''}
+          Showing {showingFrom}-{showingTo} of {safeTotalElements}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+            disabled={safePage <= 0 || loading}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft size={16} />
+            Prev
+          </button>
+          <div className="text-sm font-semibold text-slate-700 min-w-[88px] text-center">
+            Page {safeTotalPages === 0 ? 0 : safePage + 1} / {safeTotalPages}
+          </div>
+          <button
+            onClick={() => setPage((prev) => prev + 1)}
+            disabled={loading || safePage + 1 >= safeTotalPages}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next
+            <ChevronRight size={16} />
+          </button>
+        </div>
       </div>
 
       {activeTab === 'levels' && (
@@ -155,8 +206,8 @@ const InventoryReport: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50/50">
-                {inventoryLevels.length > 0 ? (
-                  inventoryLevels.map((row) => (
+                {data.inventoryLevels.length > 0 ? (
+                  data.inventoryLevels.map((row) => (
                     <tr key={`${row.outletId}-${row.productId}`} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-8 py-4 text-sm font-bold text-slate-700">{row.outletName}</td>
                       <td className="px-8 py-4">
@@ -211,8 +262,8 @@ const InventoryReport: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50/50">
-                {historyLog.length > 0 ? (
-                  historyLog.map((log) => (
+                {data.historyLog.length > 0 ? (
+                  data.historyLog.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-8 py-4 text-sm font-mono text-slate-500">{formatDate(log.date)}</td>
                       <td className="px-8 py-4 text-sm font-bold text-slate-700">{log.outletName}</td>

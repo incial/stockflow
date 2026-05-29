@@ -15,6 +15,12 @@ import java.util.List;
 @Builder
 public class AdminInventoryResponse {
     private List<OutletSummaryResponse> outlets;
+    private String activeTab;
+    private int page;
+    private int size;
+    private long totalElements;
+    private int totalPages;
+    private String search;
     private List<InventoryLevelResponse> inventoryLevels;
     private List<InventoryMovementResponse> historyLog;
 

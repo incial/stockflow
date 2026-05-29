@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 
@@ -23,9 +25,40 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
         String getBatchName();
     }
 
+    interface ReportDateSummary {
+        LocalDate getEntryDate();
+        long getBatchCount();
+        long getItemCount();
+        BigDecimal getTotalAmount();
+    }
+
     List<StockEntry> findByOutletIdOrderByEntryDateDescCreatedAtDesc(Long outletId, Pageable pageable);
     List<StockEntry> findAllByOrderByEntryDateDescCreatedAtDesc(Pageable pageable);
     List<StockEntry> findByBatchId(Long batchId);
+
+    @Query("""
+    select se
+    from StockEntry se
+    join fetch se.product
+    join fetch se.outlet
+    where (:outletId is null or se.outlet.id = :outletId)
+      and se.entryDate = :entryDate
+    order by se.createdAt desc, se.batchId desc, se.id asc
+""")
+    List<StockEntry> findReportEntriesByOutletIdAndEntryDate(Long outletId, LocalDate entryDate);
+
+    @Query("""
+    select se.entryDate as entryDate,
+           count(distinct se.batchId) as batchCount,
+           count(se) as itemCount,
+           coalesce(sum(se.amount), 0) as totalAmount
+    from StockEntry se
+    where (:outletId is null or se.outlet.id = :outletId)
+      and se.batchId is not null
+    group by se.entryDate
+    order by se.entryDate desc
+""")
+    List<ReportDateSummary> findReportDateSummaries(Long outletId);
 
     @Query("""
     select se

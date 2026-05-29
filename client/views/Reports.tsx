@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AdminReportsData, ReportBatch, User } from '../types';
-import { FileDown, CalendarDays, Filter, Edit2, Check, X, Trash2, Loader2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { CalendarDays, Check, Edit2, FileDown, Filter, Loader2, Trash2, X } from 'lucide-react';
 import { CustomSelect } from '../components/CustomSelect';
-import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
-import { validateText } from '../utils/validation';
+import { api } from '../services/api';
+import { AdminReportsData, ReportBatch, User } from '../types';
 import { formatDateTime } from '../utils/calculations';
+import { validateText } from '../utils/validation';
 
 interface ReportsProps {
   currentUser: User;
@@ -13,7 +13,62 @@ interface ReportsProps {
 
 const emptyReportsData: AdminReportsData = {
   outlets: [],
-  dates: []
+  dates: [],
+  selectedDate: null,
+  batches: []
+};
+
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0
+});
+
+const ReportsSkeleton: React.FC = () => (
+  <div className="space-y-6 animate-pulse">
+    <div className="glass-panel rounded-2xl p-4">
+      <div className="flex flex-wrap gap-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} className="h-11 w-32 rounded-xl bg-slate-200/70" />
+        ))}
+      </div>
+    </div>
+    <div className="space-y-6">
+      {Array.from({ length: 2 }).map((_, index) => (
+        <div key={index} className="glass-panel rounded-[32px] overflow-hidden">
+          <div className="h-24 bg-slate-200/70" />
+          <div className="p-6 space-y-3">
+            {Array.from({ length: 5 }).map((__, rowIndex) => (
+              <div key={rowIndex} className="h-12 rounded-xl bg-slate-100" />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const ReportDetailsSkeleton: React.FC = () => (
+  <div className="space-y-6 animate-pulse">
+    {Array.from({ length: 2 }).map((_, index) => (
+      <div key={index} className="glass-panel rounded-[32px] overflow-hidden">
+        <div className="h-24 bg-slate-200/70" />
+        <div className="p-6 space-y-3">
+          {Array.from({ length: 4 }).map((__, rowIndex) => (
+            <div key={rowIndex} className="h-12 rounded-xl bg-slate-100" />
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const escapeCsvCell = (value: string | number | null | undefined) => {
+  const normalized = value == null ? '' : String(value);
+  if (normalized.includes('"') || normalized.includes(',') || normalized.includes('\n')) {
+    return `"${normalized.replace(/"/g, '""')}"`;
+  }
+  return normalized;
 };
 
 const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
@@ -24,38 +79,70 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
   const [deletingBatchId, setDeletingBatchId] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [batchToDelete, setBatchToDelete] = useState<ReportBatch | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [data, setData] = useState<AdminReportsData>(emptyReportsData);
   const { addToast } = useToast();
 
-  const loadReports = async (outletId?: number) => {
+  const outletId = filterOutlet ? Number(filterOutlet) : undefined;
+
+  const loadReportDetails = async (date: string, currentOutlets?: AdminReportsData['outlets'], currentDates?: AdminReportsData['dates']) => {
     try {
-      setLoading(true);
+      setDetailsLoading(true);
+      const response = await api.admin.getReports(outletId, date);
+      setData({
+        outlets: response.outlets.length > 0 ? response.outlets : (currentOutlets ?? data.outlets),
+        dates: response.dates.length > 0 ? response.dates : (currentDates ?? data.dates),
+        selectedDate: response.selectedDate ?? date,
+        batches: response.batches
+      });
+      setSelectedDate(response.selectedDate ?? date);
+    } catch (error: any) {
+      addToast(error.message || 'Failed to load report details', 'error');
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const loadReportSummary = async (preferredDate?: string | null) => {
+    try {
+      setSummaryLoading(true);
       const response = await api.admin.getReports(outletId);
-      setData(response);
-      setSelectedDate(previous =>
-        previous && response.dates.some(group => group.date === previous)
-          ? previous
-          : response.dates[0]?.date ?? null
-      );
+      const nextDate =
+        preferredDate && response.dates.some((group) => group.date === preferredDate)
+          ? preferredDate
+          : response.selectedDate;
+
+      setData({
+        outlets: response.outlets,
+        dates: response.dates,
+        selectedDate: nextDate,
+        batches: []
+      });
+      setSelectedDate(nextDate);
+
+      if (nextDate) {
+        await loadReportDetails(nextDate, response.outlets, response.dates);
+      }
     } catch (error: any) {
       addToast(error.message || 'Failed to load reports', 'error');
     } finally {
-      setLoading(false);
+      setSummaryLoading(false);
     }
   };
 
   useEffect(() => {
-    loadReports(filterOutlet ? Number(filterOutlet) : undefined);
+    loadReportSummary();
   }, [filterOutlet]);
 
-  const currentBatches = useMemo(
-    () => data.dates.find(group => group.date === selectedDate)?.batches ?? [],
-    [data.dates, selectedDate]
-  );
-
-  const handleDateChange = (date: string) => {
+  const handleDateChange = async (date: string) => {
     setSelectedDate(date);
+    setData((previous) => ({
+      ...previous,
+      selectedDate: date,
+      batches: []
+    }));
+    await loadReportDetails(date);
   };
 
   const handleEditBatchName = (batchId: number, currentName?: string) => {
@@ -74,7 +161,8 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
       await api.stockIn.updateBatch(batchId, editingBatchName.trim());
       addToast('Batch name updated successfully', 'success');
       setEditingBatchId(null);
-      await loadReports(filterOutlet ? Number(filterOutlet) : undefined);
+      setEditingBatchName('');
+      await loadReportSummary(selectedDate);
     } catch (error: any) {
       addToast(error.message || 'Failed to update batch name', 'error');
     }
@@ -89,7 +177,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
     try {
       await api.stockIn.updateBatch(batchId, undefined, !currentChecked);
       addToast('Batch status updated', 'success');
-      await loadReports(filterOutlet ? Number(filterOutlet) : undefined);
+      await loadReportSummary(selectedDate);
     } catch (error: any) {
       addToast(error.message || 'Failed to update batch status', 'error');
     }
@@ -107,30 +195,82 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
   };
 
   const handleConfirmDelete = async () => {
-    if (!batchToDelete) return;
+    if (!batchToDelete) {
+      return;
+    }
 
     try {
       setDeletingBatchId(batchToDelete.batchId);
       await api.stockIn.deleteBatch(batchToDelete.batchId);
       addToast('Batch deleted successfully', 'success');
-      await loadReports(filterOutlet ? Number(filterOutlet) : undefined);
       handleCancelDelete();
+      await loadReportSummary(selectedDate);
     } catch (error: any) {
       setDeletingBatchId(null);
       addToast(error.message || 'Failed to delete batch', 'error');
     }
   };
 
+  const handleExportCsv = () => {
+    if (!selectedDate || data.batches.length === 0) {
+      addToast('No report data available to export', 'error');
+      return;
+    }
+
+    const rows = [
+      ['Date', 'Batch Number', 'Batch Name', 'Created At', 'Product', 'Brand', 'Outlet', 'Quantity', 'MRP', 'Amount', 'Profit', 'Margin Per Bottle', 'Margin %'],
+      ...data.batches.flatMap((batch) =>
+        batch.entries.map((entry) => [
+          batch.entryDate,
+          batch.batchNumber,
+          batch.batchName || `Stock Entry #${batch.batchNumber}`,
+          batch.createdAt,
+          entry.productName,
+          entry.brand,
+          entry.outletName,
+          entry.quantity,
+          entry.mrp,
+          entry.amount,
+          entry.profit,
+          entry.marginPerBottle,
+          entry.margin
+        ])
+      )
+    ];
+
+    const csv = rows
+      .map((row) => row.map((cell) => escapeCsvCell(cell)).join(','))
+      .join('\n');
+
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `reports-${selectedDate}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    addToast('CSV exported successfully', 'success');
+  };
+
   const outletOptions = [
     { value: '', label: 'All Outlets' },
-    ...data.outlets.map(outlet => ({ value: String(outlet.id), label: outlet.name }))
+    ...data.outlets.map((outlet) => ({ value: String(outlet.id), label: outlet.name }))
   ];
 
-  if (loading) {
+  const selectedDateSummary = data.dates.find((group) => group.date === selectedDate) ?? null;
+
+  if (summaryLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400">
-        <Loader2 className="animate-spin mb-4 text-indigo-500" size={40} />
-        <p>Loading reports...</p>
+      <div className="space-y-6">
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <h2 className="text-3xl sm:text-4xl font-light text-slate-900 tracking-tight">Detailed Reports</h2>
+            <p className="text-slate-500 mt-1 text-base sm:text-lg">Daily stock entry batches.</p>
+          </div>
+        </header>
+        <ReportsSkeleton />
       </div>
     );
   }
@@ -139,14 +279,14 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
     <div className="space-y-6">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-4xl font-light text-slate-900 tracking-tight">Detailed Reports</h2>
-          <p className="text-slate-500 mt-1 text-lg">Daily stock entry batches.</p>
+          <h2 className="text-3xl sm:text-4xl font-light text-slate-900 tracking-tight">Detailed Reports</h2>
+          <p className="text-slate-500 mt-1 text-base sm:text-lg">Load one date at a time for faster review and export.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 w-full md:w-auto">
           <CustomSelect
             value={filterOutlet}
-            onChange={(val) => {
-              setFilterOutlet(val);
+            onChange={(value) => {
+              setFilterOutlet(value);
               setSelectedDate(null);
             }}
             options={outletOptions}
@@ -154,36 +294,37 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
           />
 
           <button
-            onClick={() => alert(`Generating Excel Export for ${selectedDate}`)}
-            className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 font-bold shadow-lg shadow-emerald-500/30 transition-all hover:-translate-y-0.5"
+            onClick={handleExportCsv}
+            disabled={detailsLoading || data.batches.length === 0}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 font-bold shadow-lg shadow-emerald-500/30 transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
             <FileDown size={20} />
-            Export Excel
+            Export CSV
           </button>
         </div>
       </header>
 
-      <section className="glass-panel p-2 rounded-2xl overflow-x-auto scrollbar-hide w-full">
-        <div className="flex items-center gap-2 min-w-max">
-          <div className="px-4 py-2 text-slate-400 border-r border-slate-200/50 mr-2 flex items-center gap-2">
+      <section className="glass-panel p-3 sm:p-2 rounded-2xl w-full overflow-hidden">
+        <div className="flex flex-wrap sm:flex-nowrap items-start sm:items-center gap-2">
+          <div className="w-full sm:w-auto px-2 sm:px-4 py-2 text-slate-400 border-b sm:border-b-0 sm:border-r border-slate-200/50 sm:mr-2 flex items-center gap-2">
             <CalendarDays size={20} />
             <span className="text-xs font-bold uppercase tracking-wider">Date</span>
           </div>
           {data.dates.length > 0 ? (
-            data.dates.map((group, idx) => (
+            data.dates.map((group) => (
               <button
                 key={group.date}
                 onClick={() => handleDateChange(group.date)}
-                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all border border-transparent ${
+                className={`w-full sm:w-auto sm:min-w-[168px] px-4 py-3 rounded-xl text-left text-sm font-bold transition-all border ${
                   selectedDate === group.date
-                    ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/20'
-                    : 'text-slate-500 hover:bg-white/50 hover:border-white/50 hover:text-slate-800'
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/20'
+                    : 'text-slate-600 border-transparent hover:bg-white/50 hover:border-white/50 hover:text-slate-800'
                 }`}
               >
-                {group.date}
-                {idx === 0 && (
-                  <span className="ml-2 inline-block w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
-                )}
+                <div>{group.date}</div>
+                <div className={`mt-1 text-[11px] font-medium ${selectedDate === group.date ? 'text-slate-300' : 'text-slate-400'}`}>
+                  {group.batchCount} batches • {group.itemCount} items
+                </div>
               </button>
             ))
           ) : (
@@ -192,40 +333,59 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
         </div>
       </section>
 
-      {selectedDate && currentBatches.length > 0 ? (
+      {selectedDateSummary && (
+        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="glass-panel rounded-2xl p-5">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Selected Date</div>
+            <div className="mt-2 text-xl sm:text-2xl font-semibold text-slate-900 break-words">{selectedDateSummary.date}</div>
+          </div>
+          <div className="glass-panel rounded-2xl p-5">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Batches</div>
+            <div className="mt-2 text-xl sm:text-2xl font-semibold text-slate-900">{selectedDateSummary.batchCount}</div>
+          </div>
+          <div className="glass-panel rounded-2xl p-5">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Amount</div>
+            <div className="mt-2 text-xl sm:text-2xl font-semibold text-slate-900 break-words">{currencyFormatter.format(selectedDateSummary.totalAmount)}</div>
+          </div>
+        </section>
+      )}
+
+      {detailsLoading ? (
+        <ReportDetailsSkeleton />
+      ) : selectedDate && data.batches.length > 0 ? (
         <div className="space-y-8">
-          {currentBatches.map((batch) => (
+          {data.batches.map((batch) => (
             <div key={batch.batchId} className="glass-panel rounded-[32px] overflow-hidden shadow-xl ring-1 ring-black/5">
-              <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-8 py-4 flex items-center justify-between">
+              <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div className="flex-1">
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
                     {editingBatchId === batch.batchId ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 w-full">
                         <input
                           type="text"
                           value={editingBatchName}
                           onChange={(e) => setEditingBatchName(e.target.value)}
                           maxLength={100}
-                          className="px-3 py-1 bg-white text-slate-900 rounded-lg text-lg font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full sm:w-auto sm:min-w-[240px] px-3 py-2 bg-white text-slate-900 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
                           placeholder="Enter batch name..."
                           autoFocus
                         />
                         <button
                           onClick={() => handleSaveBatchName(batch.batchId)}
-                          className="p-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+                          className="p-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
                         >
                           <Check size={18} />
                         </button>
                         <button
                           onClick={handleCancelEdit}
-                          className="p-1.5 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition"
+                          className="p-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition"
                         >
                           <X size={18} />
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-white text-lg font-bold">
+                      <>
+                        <h3 className="text-white text-base sm:text-lg font-bold break-words">
                           {batch.batchName || `Stock Entry #${batch.batchNumber}`}
                         </h3>
                         <button
@@ -255,45 +415,114 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
                             <Trash2 size={16} />
                           </button>
                         )}
-                      </div>
+                      </>
                     )}
                   </div>
-                  <p className="text-slate-300 text-sm mt-1">
+                  <p className="text-slate-300 text-xs sm:text-sm mt-2 break-words">
                     Date: {batch.entryDate} • Submitted: {formatDateTime(batch.createdAt)} • {batch.itemCount} items
                   </p>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm text-slate-400">Total Amount</div>
-                  <div className="text-2xl font-bold text-white">₹{batch.totalAmount.toFixed(0)}</div>
+                <div className="text-left lg:text-right">
+                  <div className="text-sm text-slate-400">Batch Total</div>
+                  <div className="text-xl sm:text-2xl font-bold text-white break-words">{currencyFormatter.format(batch.totalAmount)}</div>
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse table-fixed min-w-[1000px]">
+              <div className="md:hidden p-4 space-y-3 bg-white/50">
+                {batch.entries.map((entry, index) => (
+                  <div key={`${entry.id}-${index}`} className="rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs font-mono text-slate-400">#{index + 1}</div>
+                        <div className="text-sm font-semibold text-slate-800 break-words">{entry.productName}</div>
+                        <div className="text-xs text-slate-500 mt-1">{entry.brand}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-slate-400">Qty</div>
+                        <div className="text-sm font-bold text-slate-900">{entry.quantity}</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
+                      <div>
+                        <div className="text-[11px] uppercase tracking-wide text-slate-400">MRP</div>
+                        <div className="font-medium text-slate-700">{entry.mrp.toFixed(2)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase tracking-wide text-slate-400">Cost</div>
+                        <div className="font-medium text-indigo-600">{entry.amount.toFixed(0)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase tracking-wide text-slate-400">Profit</div>
+                        <div className={entry.profit >= 0 ? 'font-semibold text-emerald-600' : 'font-semibold text-rose-600'}>
+                          {entry.profit.toFixed(0)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase tracking-wide text-slate-400">Per Unit</div>
+                        <div className="font-medium text-slate-700">{entry.marginPerBottle.toFixed(1)}</div>
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <span className={`inline-flex px-2 py-1 rounded text-[10px] font-bold border ${
+                        entry.margin > 20 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' :
+                        entry.margin > 10 ? 'bg-amber-50 border-amber-100 text-amber-700' :
+                        'bg-rose-50 border-rose-100 text-rose-700'
+                      }`}>
+                        Margin {entry.margin.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                <div className="rounded-2xl bg-slate-900 text-white p-4">
+                  <div className="text-xs uppercase tracking-wider text-slate-400">Batch Total</div>
+                  <div className="mt-2 flex items-center justify-between gap-3 text-sm">
+                    <span>Amount</span>
+                    <span className="font-bold">{currencyFormatter.format(batch.totalAmount)}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between gap-3 text-sm">
+                    <span>Profit</span>
+                    <span className="font-bold">{currencyFormatter.format(batch.totalProfit)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[920px]">
                   <thead>
                     <tr className="bg-slate-900 text-white text-[10px] uppercase tracking-widest font-bold">
-                      <th className="px-6 py-4 w-16 border-r border-white/10">Sl</th>
-                      <th className="px-6 py-4 w-1/3 border-r border-white/10">Item Description</th>
-                      <th className="px-6 py-4 w-24 border-r border-white/10 text-center">MRP</th>
-                      <th className="px-4 py-4 text-center border-r border-white/10">Stock</th>
-                      <th className="px-4 py-4 text-center border-r border-white/10">Cost</th>
-                      <th className="px-4 py-4 text-center border-r border-white/10">Profit</th>
-                      <th className="px-4 py-4 text-center border-r border-white/10">Mgn/Btl</th>
+                      <th className="px-6 py-4 border-r border-white/10">Sl</th>
+                      <th className="px-6 py-4 border-r border-white/10">Item Description</th>
+                      <th className="px-6 py-4 border-r border-white/10 text-center">MRP</th>
+                      <th className="px-4 py-4 text-center border-r border-white/10">Qty</th>
+                      <th className="px-4 py-4 text-right border-r border-white/10">Cost</th>
+                      <th className="px-4 py-4 text-right border-r border-white/10">Profit</th>
+                      <th className="px-4 py-4 text-right border-r border-white/10">Per Unit</th>
                       <th className="px-4 py-4 text-center">Margin %</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {batch.entries.map((entry, idx) => (
-                      <tr key={`${entry.id}-${idx}`} className="hover:bg-slate-50/50 border-b border-slate-100/50 group transition-colors">
-                        <td className="px-6 py-3 text-[10px] text-slate-400 font-mono border-r border-slate-100/50">{idx + 1}</td>
-                        <td className="px-6 py-3 text-sm font-semibold text-slate-700 border-r border-slate-100/50 truncate">{entry.productName}</td>
-                        <td className="px-6 py-3 text-[10px] text-center font-mono text-slate-500 border-r border-slate-100/50">{entry.mrp.toFixed(2)}</td>
-                        <td className="px-4 py-3 text-center text-sm font-bold border-r border-slate-100/50 text-slate-900 bg-slate-50/30">{entry.quantity}</td>
-                        <td className="px-4 py-3 text-right text-sm font-medium text-indigo-600 border-r border-slate-100/50">{entry.amount.toFixed(0)}</td>
+                    {batch.entries.map((entry, index) => (
+                      <tr key={`${entry.id}-${index}`} className="hover:bg-slate-50/50 border-b border-slate-100/50 transition-colors">
+                        <td className="px-6 py-3 text-xs text-slate-400 font-mono border-r border-slate-100/50">{index + 1}</td>
+                        <td className="px-6 py-3 border-r border-slate-100/50">
+                          <div className="text-sm font-semibold text-slate-700">{entry.productName}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">{entry.brand}</div>
+                        </td>
+                        <td className="px-6 py-3 text-xs text-center font-mono text-slate-500 border-r border-slate-100/50">
+                          {entry.mrp.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm font-bold border-r border-slate-100/50 text-slate-900 bg-slate-50/30">
+                          {entry.quantity}
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm font-medium text-indigo-600 border-r border-slate-100/50">
+                          {entry.amount.toFixed(0)}
+                        </td>
                         <td className={`px-4 py-3 text-right text-sm font-bold border-r border-slate-100/50 ${entry.profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                           {entry.profit.toFixed(0)}
                         </td>
-                        <td className="px-4 py-3 text-right text-xs text-slate-500 border-r border-slate-100/50 font-mono">{entry.marginPerBottle.toFixed(1)}</td>
+                        <td className="px-4 py-3 text-right text-xs text-slate-500 border-r border-slate-100/50 font-mono">
+                          {entry.marginPerBottle.toFixed(1)}
+                        </td>
                         <td className="px-4 py-3 text-center">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                             entry.margin > 20 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' :
@@ -307,8 +536,8 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
                     ))}
                     <tr className="bg-slate-900 text-white font-bold text-sm">
                       <td colSpan={4} className="px-6 py-4 text-right border-r border-white/10 uppercase tracking-wider">Batch Total</td>
-                      <td className="px-4 py-4 text-right border-r border-white/10">₹{batch.totalAmount.toFixed(0)}</td>
-                      <td className="px-4 py-4 text-right border-r border-white/10">₹{batch.totalProfit.toFixed(0)}</td>
+                      <td className="px-4 py-4 text-right border-r border-white/10">{currencyFormatter.format(batch.totalAmount)}</td>
+                      <td className="px-4 py-4 text-right border-r border-white/10">{currencyFormatter.format(batch.totalProfit)}</td>
                       <td colSpan={2}></td>
                     </tr>
                   </tbody>
@@ -318,13 +547,13 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
           ))}
         </div>
       ) : (
-        <div className="glass-panel rounded-[32px] p-24 text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-slate-50 text-slate-300 rounded-full mb-6">
+        <div className="glass-panel rounded-[32px] p-10 sm:p-16 lg:p-24 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 text-slate-300 rounded-full mb-6">
             <CalendarDays size={40} />
           </div>
           <div>
-            <h3 className="text-2xl font-light text-slate-800">No Data for Selected Date</h3>
-            <p className="text-slate-500 mt-2 text-lg">Please select a date from above.</p>
+            <h3 className="text-xl sm:text-2xl font-light text-slate-800">No Data for Selected Date</h3>
+            <p className="text-slate-500 mt-2 text-base sm:text-lg">Choose a date with report batches to inspect or export.</p>
           </div>
         </div>
       )}
@@ -356,7 +585,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
                   </div>
                   <div className="text-sm">
                     <span className="font-semibold text-slate-700">Total Amount: </span>
-                    <span className="text-slate-600">₹{batchToDelete.totalAmount.toFixed(0)}</span>
+                    <span className="text-slate-600">{currencyFormatter.format(batchToDelete.totalAmount)}</span>
                   </div>
                 </div>
                 <div className="flex gap-3">
@@ -374,7 +603,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
                   >
                     {deletingBatchId ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <Loader2 className="animate-spin" size={16} />
                         Deleting...
                       </>
                     ) : (

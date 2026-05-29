@@ -29,16 +29,21 @@ public class AdminAnalyticsController {
     @GetMapping("/inventory")
     public ResponseEntity<AdminInventoryResponse> getInventory(
             @AuthenticationPrincipal User currentUser,
-            @RequestParam(required = false) Long outletId
+            @RequestParam(required = false) Long outletId,
+            @RequestParam(defaultValue = "levels") String tab,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String search
     ) {
-        return ResponseEntity.ok(adminAnalyticsService.getInventory(currentUser, outletId));
+        return ResponseEntity.ok(adminAnalyticsService.getInventory(currentUser, outletId, tab, page, size, search));
     }
 
     @GetMapping("/reports")
     public ResponseEntity<AdminReportsResponse> getReports(
             @AuthenticationPrincipal User currentUser,
-            @RequestParam(required = false) Long outletId
+            @RequestParam(required = false) Long outletId,
+            @RequestParam(required = false) String date
     ) {
-        return ResponseEntity.ok(adminAnalyticsService.getReports(currentUser, outletId));
+        return ResponseEntity.ok(adminAnalyticsService.getReports(currentUser, outletId, date));
     }
 }

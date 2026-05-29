@@ -389,22 +389,49 @@ export const api = {
       return handleResponse<AdminDashboardData>(response);
     },
 
-    getInventory: async (outletId?: number): Promise<AdminInventoryData> => {
-      const query = buildPagedQuery({ outletId });
+    getInventory: async (
+      outletId?: number,
+      tab: 'levels' | 'history' = 'levels',
+      page = 0,
+      size = 20,
+      search?: string
+    ): Promise<AdminInventoryData> => {
+      const query = buildPagedQuery({ outletId, tab, page, size, search });
       const response = await fetch(`${API_BASE_URL}/admin/inventory${query}`, {
         method: 'GET',
         headers: getHeaders(),
       });
-      return handleResponse<AdminInventoryData>(response);
+      const payload = await handleResponse<AdminInventoryData>(response);
+
+      return {
+        ...payload,
+        activeTab: payload.activeTab === 'history' ? 'history' : 'levels',
+        page: Number.isFinite(payload.page) ? payload.page : 0,
+        size: Number.isFinite(payload.size) && payload.size > 0 ? payload.size : size,
+        totalElements: Number.isFinite(payload.totalElements) && payload.totalElements >= 0 ? payload.totalElements : 0,
+        totalPages: Number.isFinite(payload.totalPages) && payload.totalPages >= 0 ? payload.totalPages : 0,
+        search: payload.search ?? '',
+        inventoryLevels: payload.inventoryLevels ?? [],
+        historyLog: payload.historyLog ?? [],
+        outlets: payload.outlets ?? [],
+      };
     },
 
-    getReports: async (outletId?: number): Promise<AdminReportsData> => {
-      const query = buildPagedQuery({ outletId });
+    getReports: async (outletId?: number, date?: string): Promise<AdminReportsData> => {
+      const query = buildPagedQuery({ outletId, date });
       const response = await fetch(`${API_BASE_URL}/admin/reports${query}`, {
         method: 'GET',
         headers: getHeaders(),
       });
-      return handleResponse<AdminReportsData>(response);
+      const payload = await handleResponse<AdminReportsData>(response);
+
+      return {
+        ...payload,
+        outlets: payload.outlets ?? [],
+        dates: payload.dates ?? [],
+        selectedDate: payload.selectedDate ?? null,
+        batches: payload.batches ?? [],
+      };
     },
   }
 };
