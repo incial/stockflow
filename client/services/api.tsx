@@ -1,5 +1,16 @@
 
-import { StockEntry, StockOutEntry, Product, Outlet, User, StockOutReason, AuditLog } from '../types';
+import {
+  AdminDashboardData,
+  AdminInventoryData,
+  AdminReportsData,
+  AuditLog,
+  Outlet,
+  Product,
+  StockEntry,
+  StockOutEntry,
+  StockOutReason,
+  User
+} from '../types';
 
 // ============================================
 // Configuration
@@ -366,6 +377,34 @@ export const api = {
      */
     getAll: async (): Promise<AuditLog[]> => {
       return fetchAllPages<AuditLog>('/audit', { pageSize: 50 });
+    },
+  },
+
+  admin: {
+    getDashboard: async (): Promise<AdminDashboardData> => {
+      const response = await fetch(`${API_BASE_URL}/admin/dashboard`, {
+        method: 'GET',
+        headers: getHeaders(),
+      });
+      return handleResponse<AdminDashboardData>(response);
+    },
+
+    getInventory: async (outletId?: number): Promise<AdminInventoryData> => {
+      const query = buildPagedQuery({ outletId });
+      const response = await fetch(`${API_BASE_URL}/admin/inventory${query}`, {
+        method: 'GET',
+        headers: getHeaders(),
+      });
+      return handleResponse<AdminInventoryData>(response);
+    },
+
+    getReports: async (outletId?: number): Promise<AdminReportsData> => {
+      const query = buildPagedQuery({ outletId });
+      const response = await fetch(`${API_BASE_URL}/admin/reports${query}`, {
+        method: 'GET',
+        headers: getHeaders(),
+      });
+      return handleResponse<AdminReportsData>(response);
     },
   }
 };

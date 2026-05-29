@@ -12,9 +12,8 @@ if (!rootElement) {
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(
-  <React.StrictMode>
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <App />
     </GoogleOAuthProvider>
-  </React.StrictMode>
 );
+  

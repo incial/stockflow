@@ -28,6 +28,25 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
     List<StockEntry> findByBatchId(Long batchId);
 
     @Query("""
+    select se
+    from StockEntry se
+    join fetch se.product
+    join fetch se.outlet
+    order by se.entryDate desc, se.createdAt desc
+""")
+    List<StockEntry> findAllWithProductAndOutletOrderByEntryDateDescCreatedAtDesc();
+
+    @Query("""
+    select se
+    from StockEntry se
+    join fetch se.product
+    join fetch se.outlet
+    where se.outlet.id = :outletId
+    order by se.entryDate desc, se.createdAt desc
+""")
+    List<StockEntry> findByOutletIdWithProductAndOutletOrderByEntryDateDescCreatedAtDesc(Long outletId);
+
+    @Query("""
     select count(se) as entryCount,
            outlet.name as outletName,
            max(se.batchName) as batchName

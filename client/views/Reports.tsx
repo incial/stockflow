@@ -1,137 +1,62 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { StockEntry, Product, EnrichedStockEntry, Outlet, User, UserRole } from '../types';
-import {
-  buildOutletMap,
-  buildProductMap,
-  calculateEntryMetricsWithMaps,
-  formatDateTime
-} from '../utils/calculations';
-import { FileDown, CalendarDays, Filter, Edit2, Check, X, Trash2 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AdminReportsData, ReportBatch, User } from '../types';
+import { FileDown, CalendarDays, Filter, Edit2, Check, X, Trash2, Loader2 } from 'lucide-react';
 import { CustomSelect } from '../components/CustomSelect';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { validateText } from '../utils/validation';
+import { formatDateTime } from '../utils/calculations';
 
 interface ReportsProps {
-  entries: StockEntry[];
-  products: Product[];
-  outlets: Outlet[];
   currentUser: User;
-  refreshData?: () => Promise<void>;
 }
 
-interface BatchGroup {
-  batchId: number;
-  entries: EnrichedStockEntry[];
-  entryDate: string;
-  createdAt: string;
-  batchNumber: number;
-  batchName?: string;
-  isChecked?: boolean;
-}
+const emptyReportsData: AdminReportsData = {
+  outlets: [],
+  dates: []
+};
 
-interface ReportDataState {
-  batchesByDate: Record<string, BatchGroup[]>;
-  sortedDates: string[];
-}
-
-const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUser, refreshData }) => {
+const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
   const [filterOutlet, setFilterOutlet] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [editingBatchId, setEditingBatchId] = useState<number | null>(null);
   const [editingBatchName, setEditingBatchName] = useState('');
-  const [localBatchUpdates, setLocalBatchUpdates] = useState<Record<number, { batchName?: string; isChecked?: boolean }>>({});
   const [deletingBatchId, setDeletingBatchId] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [batchToDelete, setBatchToDelete] = useState<BatchGroup | null>(null);
+  const [batchToDelete, setBatchToDelete] = useState<ReportBatch | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<AdminReportsData>(emptyReportsData);
   const { addToast } = useToast();
-  const productMap = useMemo(() => buildProductMap(products), [products]);
-  const outletMap = useMemo(() => buildOutletMap(outlets), [outlets]);
 
-  const reportData = useMemo<ReportDataState>(() => {
-    // Filter entries by outlet if needed
-    const filteredEntries = entries.filter(e => 
-      !filterOutlet || String(e.outletId) === filterOutlet
-    );
-
-    // Group entries by batchId (proper batch identification)
-    const batchMap: Record<number, EnrichedStockEntry[]> = {};
-    
-    filteredEntries.forEach(e => {
-      const metrics = calculateEntryMetricsWithMaps(e, productMap, outletMap);
-      
-      // Use batchId if available, otherwise fall back to createdAt for old entries
-      let batchKey: number;
-      if (e.batchId) {
-        batchKey = e.batchId;
-      } else {
-        // Fallback for old entries without batchId (legacy support)
-        const timestamp = new Date(e.createdAt);
-        
-        // Validate the date is valid before using it
-        if (isNaN(timestamp.getTime())) {
-          console.warn(`Skipping entry due to invalid createdAt timestamp. Entry ID: ${e.id}, Value: ${e.createdAt}. Please verify data source.`);
-          return; // Skip entries with invalid timestamps
-        }
-        
-        timestamp.setMilliseconds(0);
-        batchKey = -timestamp.getTime();
-      }
-      
-      if (!batchMap[batchKey]) batchMap[batchKey] = [];
-      batchMap[batchKey].push(metrics);
-    });
-
-    // Convert to array and sort by creation time (newest first)
-    const batches: BatchGroup[] = Object.entries(batchMap)
-      .map(([batchKey, entries]) => {
-        const batchId = Number(batchKey);
-        const localUpdate = localBatchUpdates[batchId];
-        
-        return {
-          batchId,
-          entries,
-          entryDate: entries[0]?.entryDate || '',
-          createdAt: entries[0]?.createdAt || '',
-          batchNumber: 0, // Will be assigned per date
-          // Apply local updates if they exist, otherwise use data from entries
-          batchName: localUpdate?.batchName !== undefined ? localUpdate.batchName : entries[0]?.batchName,
-          isChecked: localUpdate?.isChecked !== undefined ? localUpdate.isChecked : (entries[0]?.isChecked || false)
-        };
-      })
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-
-    // Group batches by date
-    const batchesByDate: Record<string, BatchGroup[]> = {};
-    batches.forEach(batch => {
-      const date = batch.entryDate;
-      if (!batchesByDate[date]) batchesByDate[date] = [];
-      batchesByDate[date].push(batch);
-    });
-
-    // Assign batch numbers per date
-    Object.values(batchesByDate).forEach(dateBatches => {
-      dateBatches.forEach((batch, index) => {
-        batch.batchNumber = index + 1;
-      });
-    });
-
-    const sortedDates = Object.keys(batchesByDate).sort().reverse();
-
-    return { batchesByDate, sortedDates };
-  }, [entries, filterOutlet, localBatchUpdates, productMap, outletMap]);
+  const loadReports = async (outletId?: number) => {
+    try {
+      setLoading(true);
+      const response = await api.admin.getReports(outletId);
+      setData(response);
+      setSelectedDate(previous =>
+        previous && response.dates.some(group => group.date === previous)
+          ? previous
+          : response.dates[0]?.date ?? null
+      );
+    } catch (error: any) {
+      addToast(error.message || 'Failed to load reports', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (reportData.sortedDates.length > 0 && !selectedDate) {
-      setSelectedDate(reportData.sortedDates[0]);
-    }
-  }, [reportData.sortedDates, selectedDate]);
+    loadReports(filterOutlet ? Number(filterOutlet) : undefined);
+  }, [filterOutlet]);
+
+  const currentBatches = useMemo(
+    () => data.dates.find(group => group.date === selectedDate)?.batches ?? [],
+    [data.dates, selectedDate]
+  );
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
   };
-
-  const currentBatches = selectedDate ? reportData.batchesByDate[selectedDate] || [] : [];
 
   const handleEditBatchName = (batchId: number, currentName?: string) => {
     setEditingBatchId(batchId);
@@ -139,7 +64,6 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
   };
 
   const handleSaveBatchName = async (batchId: number) => {
-    // Validate batch name
     const validation = validateText(editingBatchName.trim(), 'Batch name', 1, 100, true);
     if (!validation.isValid) {
       addToast(validation.error || 'Invalid batch name', 'error');
@@ -147,33 +71,11 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
     }
 
     try {
-      // Optimistic update
-      setLocalBatchUpdates(prev => ({
-        ...prev,
-        [batchId]: { ...prev[batchId], batchName: editingBatchName.trim() }
-      }));
-      setEditingBatchId(null);
-      
       await api.stockIn.updateBatch(batchId, editingBatchName.trim());
       addToast('Batch name updated successfully', 'success');
-      
-      // Refresh data from backend to ensure consistency
-      if (refreshData) {
-        await refreshData();
-        // Clear local update after backend sync
-        setLocalBatchUpdates(prev => {
-          const updated = { ...prev };
-          delete updated[batchId];
-          return updated;
-        });
-      }
+      setEditingBatchId(null);
+      await loadReports(filterOutlet ? Number(filterOutlet) : undefined);
     } catch (error: any) {
-      // Revert optimistic update on error
-      setLocalBatchUpdates(prev => {
-        const updated = { ...prev };
-        delete updated[batchId];
-        return updated;
-      });
       addToast(error.message || 'Failed to update batch name', 'error');
     }
   };
@@ -185,37 +87,15 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
 
   const handleToggleChecked = async (batchId: number, currentChecked: boolean) => {
     try {
-      // Optimistic update
-      setLocalBatchUpdates(prev => ({
-        ...prev,
-        [batchId]: { ...prev[batchId], isChecked: !currentChecked }
-      }));
-      
       await api.stockIn.updateBatch(batchId, undefined, !currentChecked);
       addToast('Batch status updated', 'success');
-      
-      // Refresh data from backend to ensure consistency
-      if (refreshData) {
-        await refreshData();
-        // Clear local update after backend sync
-        setLocalBatchUpdates(prev => {
-          const updated = { ...prev };
-          delete updated[batchId];
-          return updated;
-        });
-      }
+      await loadReports(filterOutlet ? Number(filterOutlet) : undefined);
     } catch (error: any) {
-      // Revert optimistic update on error
-      setLocalBatchUpdates(prev => {
-        const updated = { ...prev };
-        delete updated[batchId];
-        return updated;
-      });
       addToast(error.message || 'Failed to update batch status', 'error');
     }
   };
 
-  const handleDeleteClick = (batch: BatchGroup) => {
+  const handleDeleteClick = (batch: ReportBatch) => {
     setBatchToDelete(batch);
     setShowDeleteConfirm(true);
   };
@@ -233,12 +113,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
       setDeletingBatchId(batchToDelete.batchId);
       await api.stockIn.deleteBatch(batchToDelete.batchId);
       addToast('Batch deleted successfully', 'success');
-      
-      // Refresh data to remove deleted batch
-      if (refreshData) {
-        await refreshData();
-      }
-      
+      await loadReports(filterOutlet ? Number(filterOutlet) : undefined);
       handleCancelDelete();
     } catch (error: any) {
       setDeletingBatchId(null);
@@ -248,8 +123,17 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
 
   const outletOptions = [
     { value: '', label: 'All Outlets' },
-    ...outlets.map(o => ({ value: String(o.id), label: o.name }))
+    ...data.outlets.map(outlet => ({ value: String(outlet.id), label: outlet.name }))
   ];
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400">
+        <Loader2 className="animate-spin mb-4 text-indigo-500" size={40} />
+        <p>Loading reports...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -259,8 +143,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
           <p className="text-slate-500 mt-1 text-lg">Daily stock entry batches.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          
-          <CustomSelect 
+          <CustomSelect
             value={filterOutlet}
             onChange={(val) => {
               setFilterOutlet(val);
@@ -270,8 +153,8 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
             icon={<Filter size={18} />}
           />
 
-          <button 
-            onClick={() => alert("Generating Excel Export for " + selectedDate)}
+          <button
+            onClick={() => alert(`Generating Excel Export for ${selectedDate}`)}
             className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 font-bold shadow-lg shadow-emerald-500/30 transition-all hover:-translate-y-0.5"
           >
             <FileDown size={20} />
@@ -280,25 +163,24 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
         </div>
       </header>
 
-      {/* Date Switcher */}
       <section className="glass-panel p-2 rounded-2xl overflow-x-auto scrollbar-hide w-full">
         <div className="flex items-center gap-2 min-w-max">
           <div className="px-4 py-2 text-slate-400 border-r border-slate-200/50 mr-2 flex items-center gap-2">
             <CalendarDays size={20} />
             <span className="text-xs font-bold uppercase tracking-wider">Date</span>
           </div>
-          {reportData.sortedDates.length > 0 ? (
-            reportData.sortedDates.map((date, idx) => (
+          {data.dates.length > 0 ? (
+            data.dates.map((group, idx) => (
               <button
-                key={date}
-                onClick={() => handleDateChange(date)}
+                key={group.date}
+                onClick={() => handleDateChange(group.date)}
                 className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all border border-transparent ${
-                  selectedDate === date
-                    ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/20' 
+                  selectedDate === group.date
+                    ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/20'
                     : 'text-slate-500 hover:bg-white/50 hover:border-white/50 hover:text-slate-800'
                 }`}
               >
-                {date}
+                {group.date}
                 {idx === 0 && (
                   <span className="ml-2 inline-block w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
                 )}
@@ -310,12 +192,10 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
         </div>
       </section>
 
-      {/* Display all batches for selected date */}
       {selectedDate && currentBatches.length > 0 ? (
         <div className="space-y-8">
-          {currentBatches.map((batch, batchIndex) => (
+          {currentBatches.map((batch) => (
             <div key={batch.batchId} className="glass-panel rounded-[32px] overflow-hidden shadow-xl ring-1 ring-black/5">
-              {/* Batch Header */}
               <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-8 py-4 flex items-center justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-4">
@@ -358,15 +238,15 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
                         <button
                           onClick={() => handleToggleChecked(batch.batchId, batch.isChecked || false)}
                           className={`p-1.5 rounded-lg transition ${
-                            batch.isChecked 
-                              ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
+                            batch.isChecked
+                              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                               : 'bg-white/10 text-white hover:bg-white/20'
                           }`}
                           title={batch.isChecked ? 'Mark as unchecked' : 'Mark as checked'}
                         >
                           <Check size={16} />
                         </button>
-                        {currentUser.role === UserRole.ADMIN && (
+                        {currentUser && (
                           <button
                             onClick={() => handleDeleteClick(batch)}
                             className="p-1.5 bg-rose-600/80 text-white rounded-lg hover:bg-rose-700 transition"
@@ -379,14 +259,12 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
                     )}
                   </div>
                   <p className="text-slate-300 text-sm mt-1">
-                    Date: {batch.entryDate} • Submitted: {formatDateTime(batch.createdAt)} • {batch.entries.length} items
+                    Date: {batch.entryDate} • Submitted: {formatDateTime(batch.createdAt)} • {batch.itemCount} items
                   </p>
                 </div>
                 <div className="text-right">
                   <div className="text-sm text-slate-400">Total Amount</div>
-                  <div className="text-2xl font-bold text-white">
-                    ₹{batch.entries.reduce((sum, e) => sum + e.amount, 0).toFixed(0)}
-                  </div>
+                  <div className="text-2xl font-bold text-white">₹{batch.totalAmount.toFixed(0)}</div>
                 </div>
               </div>
 
@@ -405,35 +283,32 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
                     </tr>
                   </thead>
                   <tbody>
-                    {batch.entries.map((entry, idx) => {
-                      return (
-                        <tr key={`${entry.id}-${idx}`} className="hover:bg-slate-50/50 border-b border-slate-100/50 group transition-colors">
-                          <td className="px-6 py-3 text-[10px] text-slate-400 font-mono border-r border-slate-100/50">{idx + 1}</td>
-                          <td className="px-6 py-3 text-sm font-semibold text-slate-700 border-r border-slate-100/50 truncate">{entry.productName}</td>
-                          <td className="px-6 py-3 text-[10px] text-center font-mono text-slate-500 border-r border-slate-100/50">{entry.mrp.toFixed(2)}</td>
-                          <td className="px-4 py-3 text-center text-sm font-bold border-r border-slate-100/50 text-slate-900 bg-slate-50/30">{entry.quantity}</td>
-                          <td className="px-4 py-3 text-right text-sm font-medium text-indigo-600 border-r border-slate-100/50">{entry.amount.toFixed(0)}</td>
-                          <td className={`px-4 py-3 text-right text-sm font-bold border-r border-slate-100/50 ${entry.profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {entry.profit.toFixed(0)}
-                          </td>
-                          <td className="px-4 py-3 text-right text-xs text-slate-500 border-r border-slate-100/50 font-mono">{entry.marginPerBottle.toFixed(1)}</td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                              entry.margin > 20 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 
-                              entry.margin > 10 ? 'bg-amber-50 border-amber-100 text-amber-700' : 
-                              'bg-rose-50 border-rose-100 text-rose-700'
-                            }`}>
-                              {entry.margin.toFixed(1)}%
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {/* Batch Total Row */}
+                    {batch.entries.map((entry, idx) => (
+                      <tr key={`${entry.id}-${idx}`} className="hover:bg-slate-50/50 border-b border-slate-100/50 group transition-colors">
+                        <td className="px-6 py-3 text-[10px] text-slate-400 font-mono border-r border-slate-100/50">{idx + 1}</td>
+                        <td className="px-6 py-3 text-sm font-semibold text-slate-700 border-r border-slate-100/50 truncate">{entry.productName}</td>
+                        <td className="px-6 py-3 text-[10px] text-center font-mono text-slate-500 border-r border-slate-100/50">{entry.mrp.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-center text-sm font-bold border-r border-slate-100/50 text-slate-900 bg-slate-50/30">{entry.quantity}</td>
+                        <td className="px-4 py-3 text-right text-sm font-medium text-indigo-600 border-r border-slate-100/50">{entry.amount.toFixed(0)}</td>
+                        <td className={`px-4 py-3 text-right text-sm font-bold border-r border-slate-100/50 ${entry.profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {entry.profit.toFixed(0)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-xs text-slate-500 border-r border-slate-100/50 font-mono">{entry.marginPerBottle.toFixed(1)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            entry.margin > 20 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' :
+                            entry.margin > 10 ? 'bg-amber-50 border-amber-100 text-amber-700' :
+                            'bg-rose-50 border-rose-100 text-rose-700'
+                          }`}>
+                            {entry.margin.toFixed(1)}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
                     <tr className="bg-slate-900 text-white font-bold text-sm">
                       <td colSpan={4} className="px-6 py-4 text-right border-r border-white/10 uppercase tracking-wider">Batch Total</td>
-                      <td className="px-4 py-4 text-right border-r border-white/10">₹{batch.entries.reduce((sum, e) => sum + e.amount, 0).toFixed(0)}</td>
-                      <td className="px-4 py-4 text-right border-r border-white/10">₹{batch.entries.reduce((sum, e) => sum + e.profit, 0).toFixed(0)}</td>
+                      <td className="px-4 py-4 text-right border-r border-white/10">₹{batch.totalAmount.toFixed(0)}</td>
+                      <td className="px-4 py-4 text-right border-r border-white/10">₹{batch.totalProfit.toFixed(0)}</td>
                       <td colSpan={2}></td>
                     </tr>
                   </tbody>
@@ -454,7 +329,6 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {showDeleteConfirm && batchToDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
@@ -478,11 +352,11 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
                   </div>
                   <div className="text-sm">
                     <span className="font-semibold text-slate-700">Items: </span>
-                    <span className="text-slate-600">{batchToDelete.entries.length} products</span>
+                    <span className="text-slate-600">{batchToDelete.itemCount} products</span>
                   </div>
                   <div className="text-sm">
                     <span className="font-semibold text-slate-700">Total Amount: </span>
-                    <span className="text-slate-600">₹{batchToDelete.entries.reduce((sum, e) => sum + e.amount, 0).toFixed(0)}</span>
+                    <span className="text-slate-600">₹{batchToDelete.totalAmount.toFixed(0)}</span>
                   </div>
                 </div>
                 <div className="flex gap-3">

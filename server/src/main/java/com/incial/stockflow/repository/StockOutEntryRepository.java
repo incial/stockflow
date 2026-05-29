@@ -19,6 +19,27 @@ public interface StockOutEntryRepository extends JpaRepository<StockOutEntry, Lo
     List<StockOutEntry> findAllByOrderByDateDescCreatedAtDesc(Pageable pageable);
 
     @Query("""
+        select so
+        from StockOutEntry so
+        join fetch so.product
+        join fetch so.outlet
+        join fetch so.enteredBy
+        order by so.date desc, so.createdAt desc
+    """)
+    List<StockOutEntry> findAllWithRelationsOrderByDateDescCreatedAtDesc();
+
+    @Query("""
+        select so
+        from StockOutEntry so
+        join fetch so.product
+        join fetch so.outlet
+        join fetch so.enteredBy
+        where so.outlet.id = :outletId
+        order by so.date desc, so.createdAt desc
+    """)
+    List<StockOutEntry> findByOutletIdWithRelationsOrderByDateDescCreatedAtDesc(Long outletId);
+
+    @Query("""
         select coalesce(sum(so.quantity), 0)
         from StockOutEntry so
         where so.outlet.id = :outletId

@@ -1,6 +1,7 @@
 package com.incial.stockflow.service;
 
 import com.incial.stockflow.dto.request.ProductRequest;
+import com.incial.stockflow.dto.response.ProductResponse;
 import com.incial.stockflow.entity.Product;
 import com.incial.stockflow.entity.User;
 import com.incial.stockflow.exception.BusinessException;
@@ -22,8 +23,10 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final AuditService auditService;
 
-    public List<Product> getAllProducts() {
-        return productRepository.findAllByOrderByBrandAscNameAsc();
+    public List<ProductResponse> getAllProducts() {
+        return productRepository.findAllByOrderByBrandAscNameAsc().stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     public Product getProductById(Long id) {
@@ -45,7 +48,7 @@ public class ProductService {
     }
 
     @Transactional
-    public Product createProduct(ProductRequest request, User currentUser) {
+    public ProductResponse createProduct(ProductRequest request, User currentUser) {
         if (productRepository.existsByNameAndBrand(request.getName(), request.getBrand())) {
             throw new BusinessException("RES_002",
                     "Product with name '" + request.getName() + "' and brand '" + request.getBrand() + "' already exists");
@@ -63,11 +66,11 @@ public class ProductService {
         auditService.logAction(currentUser, "CREATE_PRODUCT", "Product", savedProduct.getId(),
                 "Created product: " + savedProduct.getName() + " (" + savedProduct.getBrand() + ")");
 
-        return savedProduct;
+        return toResponse(savedProduct);
     }
 
     @Transactional
-    public Product updateProduct(Long id, ProductRequest request, User currentUser) {
+    public ProductResponse updateProduct(Long id, ProductRequest request, User currentUser) {
         Product product = getProductById(id);
 
         // Check if updating to a name/brand combo that already exists (excluding current product)
@@ -88,7 +91,7 @@ public class ProductService {
         auditService.logAction(currentUser, "UPDATE_PRODUCT", "Product", updatedProduct.getId(),
                 "Updated product: " + updatedProduct.getName() + " (" + updatedProduct.getBrand() + ")");
 
-        return updatedProduct;
+        return toResponse(updatedProduct);
     }
 
     @Transactional
@@ -100,5 +103,14 @@ public class ProductService {
                 "Deleted product: " + product.getName() + " (" + product.getBrand() + ")");
 
         productRepository.delete(product);
+    }
+
+    private ProductResponse toResponse(Product product) {
+        return ProductResponse.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .brand(product.getBrand())
+                .mrp(product.getMrp())
+                .build();
     }
 }

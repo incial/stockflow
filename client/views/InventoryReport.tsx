@@ -1,122 +1,83 @@
-
-import React, { useState, useMemo } from 'react';
-import { StockEntry, StockOutEntry, Product, Outlet } from '../types';
-import { MOCK_USERS } from '../constants';
-import {
-  buildOutletMap,
-  buildProductMap,
-  buildStockAggregateMap,
-  formatDate,
-  getAvailableStockFromAggregateMap,
-  getStockAggregate
-} from '../utils/calculations';
-import { Filter, History, Layers, Search, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AdminInventoryData } from '../types';
+import { api } from '../services/api';
+import { formatDate } from '../utils/calculations';
+import { Filter, History, Layers, Loader2, Search, X } from 'lucide-react';
 import { CustomSelect } from '../components/CustomSelect';
-
-interface InventoryReportProps {
-  entries: StockEntry[];
-  stockOuts: StockOutEntry[];
-  products: Product[];
-  outlets: Outlet[];
-}
+import { useToast } from '../context/ToastContext';
 
 type Tab = 'levels' | 'history';
 
-const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, products, outlets }) => {
+const emptyInventoryData: AdminInventoryData = {
+  outlets: [],
+  inventoryLevels: [],
+  historyLog: []
+};
+
+const InventoryReport: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('levels');
   const [filterOutlet, setFilterOutlet] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [data, setData] = useState<AdminInventoryData>(emptyInventoryData);
+  const [loading, setLoading] = useState(true);
+  const { addToast } = useToast();
 
-  const productMap = useMemo(() => buildProductMap(products), [products]);
-  const outletMap = useMemo(() => buildOutletMap(outlets), [outlets]);
-  const stockAggregateMap = useMemo(
-    () => buildStockAggregateMap(entries, stockOuts),
-    [entries, stockOuts]
-  );
-  const mockUserMap = useMemo(
-    () => new Map(MOCK_USERS.map(user => [user.id, user])),
-    []
-  );
+  useEffect(() => {
+    const loadInventory = async () => {
+      try {
+        setLoading(true);
+        setData(await api.admin.getInventory(filterOutlet ? Number(filterOutlet) : undefined));
+      } catch (error: any) {
+        addToast(error.message || 'Failed to load inventory', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInventory();
+  }, [filterOutlet, addToast]);
 
   const inventoryLevels = useMemo(() => {
-    const levels: Array<{
-      productId: number;
-      productName: string;
-      brand: string;
-      outletId: number;
-      outletName: string;
-      totalIn: number;
-      totalOut: number;
-      available: number;
-    }> = [];
     const lowerQuery = searchQuery.toLowerCase().trim();
+    if (!lowerQuery) {
+      return data.inventoryLevels;
+    }
 
-    outlets.forEach(outlet => {
-      if (filterOutlet && String(outlet.id) !== filterOutlet) return;
-      products.forEach(product => {
-        if (lowerQuery) {
-          const matches = product.name.toLowerCase().includes(lowerQuery) || product.brand.toLowerCase().includes(lowerQuery);
-          if (!matches) return;
-        }
-        const aggregate = getStockAggregate(stockAggregateMap, product.id, outlet.id);
-        const available = getAvailableStockFromAggregateMap(stockAggregateMap, product.id, outlet.id);
-        const totalIn = aggregate?.totalIn ?? 0;
-        const totalOut = aggregate?.totalOut ?? 0;
-
-        if (totalIn > 0 || totalOut > 0) {
-          levels.push({
-            productId: product.id,
-            productName: product.name,
-            brand: product.brand,
-            outletId: outlet.id,
-            outletName: outlet.name,
-            totalIn,
-            totalOut,
-            available
-          });
-        }
-      });
-    });
-    return levels;
-  }, [products, outlets, stockAggregateMap, filterOutlet, searchQuery]);
+    return data.inventoryLevels.filter(row =>
+      row.productName.toLowerCase().includes(lowerQuery) ||
+      row.brand.toLowerCase().includes(lowerQuery) ||
+      row.outletName.toLowerCase().includes(lowerQuery)
+    );
+  }, [data.inventoryLevels, searchQuery]);
 
   const historyLog = useMemo(() => {
     const lowerQuery = searchQuery.toLowerCase().trim();
-    return stockOuts.filter(entry => {
-        if (filterOutlet && String(entry.outletId) !== filterOutlet) return false;
-        if (lowerQuery) {
-           const product = productMap.get(entry.productId);
-           const user = mockUserMap.get(entry.enteredBy);
-           const outlet = outletMap.get(entry.outletId);
-           const matches = 
-             (product?.name || '').toLowerCase().includes(lowerQuery) ||
-             (product?.brand || '').toLowerCase().includes(lowerQuery) ||
-             (user?.name || '').toLowerCase().includes(lowerQuery) ||
-             (outlet?.name || '').toLowerCase().includes(lowerQuery) ||
-             entry.reason.toLowerCase().includes(lowerQuery);
-           if (!matches) return false;
-        }
-        return true;
-      })
-      .map(entry => {
-        const product = productMap.get(entry.productId);
-        const outlet = outletMap.get(entry.outletId);
-        const user = mockUserMap.get(entry.enteredBy);
-        return {
-          ...entry,
-          productName: product?.name || 'Unknown',
-          brand: product?.brand || 'Unknown',
-          outletName: outlet?.name || 'Unknown',
-          userName: user?.name || 'Unknown'
-        };
-      })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [stockOuts, filterOutlet, searchQuery, productMap, outletMap, mockUserMap]);
+    if (!lowerQuery) {
+      return data.historyLog;
+    }
+
+    return data.historyLog.filter(log =>
+      log.productName.toLowerCase().includes(lowerQuery) ||
+      log.brand.toLowerCase().includes(lowerQuery) ||
+      log.outletName.toLowerCase().includes(lowerQuery) ||
+      log.userName.toLowerCase().includes(lowerQuery) ||
+      log.reason.toLowerCase().includes(lowerQuery)
+    );
+  }, [data.historyLog, searchQuery]);
 
   const outletOptions = [
     { value: '', label: 'All Outlets' },
-    ...outlets.map(o => ({ value: String(o.id), label: o.name }))
+    ...data.outlets.map(outlet => ({ value: String(outlet.id), label: outlet.name }))
   ];
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400">
+        <Loader2 className="animate-spin mb-4 text-indigo-500" size={40} />
+        <p>Loading inventory...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -125,12 +86,11 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
           <h2 className="text-4xl font-light text-slate-900 tracking-tight">Inventory</h2>
           <p className="text-slate-500 mt-1 text-lg">Live stock tracking & history logs.</p>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto">
-          {/* Search Bar */}
           <div className="relative group flex-1 xl:w-[320px]">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
-            <input 
+            <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -138,7 +98,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
               className="w-full pl-12 pr-10 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-medium transition-all shadow-sm"
             />
             {searchQuery && (
-              <button 
+              <button
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
               >
@@ -147,7 +107,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
             )}
           </div>
 
-          <CustomSelect 
+          <CustomSelect
             value={filterOutlet}
             onChange={setFilterOutlet}
             options={outletOptions}
@@ -156,13 +116,12 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
         </div>
       </header>
 
-      {/* Glass Tabs */}
       <div className="flex p-1 bg-white/40 backdrop-blur-md rounded-2xl border border-white/20 w-fit">
         <button
           onClick={() => setActiveTab('levels')}
           className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
-            activeTab === 'levels' 
-              ? 'bg-white shadow-md text-indigo-600' 
+            activeTab === 'levels'
+              ? 'bg-white shadow-md text-indigo-600'
               : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
           }`}
         >
@@ -172,8 +131,8 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
         <button
           onClick={() => setActiveTab('history')}
           className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
-            activeTab === 'history' 
-              ? 'bg-white shadow-md text-indigo-600' 
+            activeTab === 'history'
+              ? 'bg-white shadow-md text-indigo-600'
               : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
           }`}
         >
@@ -202,20 +161,20 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
                       <td className="px-8 py-4 text-sm font-bold text-slate-700">{row.outletName}</td>
                       <td className="px-8 py-4">
                         <div className="flex flex-col">
-                            <span className="text-sm font-semibold text-slate-800">{row.productName}</span>
-                            <span className="text-xs text-slate-500 font-medium">{row.brand}</span>
+                          <span className="text-sm font-semibold text-slate-800">{row.productName}</span>
+                          <span className="text-xs text-slate-500 font-medium">{row.brand}</span>
                         </div>
                       </td>
                       <td className="px-8 py-4 text-center text-sm font-mono text-slate-600">{row.totalIn}</td>
                       <td className="px-8 py-4 text-center">
-                          <span className={`text-sm font-mono px-2 py-1 rounded-md ${row.totalOut > 0 ? 'text-rose-600 bg-rose-50' : 'text-slate-400 bg-slate-50'}`}>
-                            {row.totalOut > 0 ? `-${row.totalOut}` : '0'}
-                          </span>
+                        <span className={`text-sm font-mono px-2 py-1 rounded-md ${row.totalOut > 0 ? 'text-rose-600 bg-rose-50' : 'text-slate-400 bg-slate-50'}`}>
+                          {row.totalOut > 0 ? `-${row.totalOut}` : '0'}
+                        </span>
                       </td>
                       <td className="px-8 py-4 text-center">
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${
-                          row.available <= 5 
-                            ? 'bg-rose-100/50 border-rose-200 text-rose-700' 
+                          row.available <= 5
+                            ? 'bg-rose-100/50 border-rose-200 text-rose-700'
                             : 'bg-emerald-100/50 border-emerald-200 text-emerald-700'
                         }`}>
                           {row.available} Units
@@ -265,7 +224,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
                       </td>
                       <td className="px-8 py-4 text-center">
                         <span className="text-rose-600 font-bold bg-rose-50 border border-rose-100 px-2 py-1 rounded-lg text-xs font-mono">
-                           -{log.quantity}
+                          -{log.quantity}
                         </span>
                       </td>
                       <td className="px-8 py-4 text-sm text-slate-600">

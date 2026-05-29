@@ -1,7 +1,7 @@
 package com.incial.stockflow.controller;
 
 import com.incial.stockflow.dto.request.ProductRequest;
-import com.incial.stockflow.entity.Product;
+import com.incial.stockflow.dto.response.ProductResponse;
 import com.incial.stockflow.entity.User;
 import com.incial.stockflow.service.ProductService;
 import jakarta.validation.Valid;
@@ -21,25 +21,25 @@ public class ProductController {
     private final ProductService productService;
 
     @GetMapping
-    public ResponseEntity<List<Product>> getAllProducts() {
-        List<Product> products = productService.getAllProducts();
+    public ResponseEntity<List<ProductResponse>> getAllProducts() {
+        List<ProductResponse> products = productService.getAllProducts();
         return ResponseEntity.ok(products);
     }
 
     @PostMapping
-    public ResponseEntity<Product> createProduct(
+    public ResponseEntity<ProductResponse> createProduct(
             @Valid @RequestBody ProductRequest request,
             @AuthenticationPrincipal User currentUser) {
-        Product product = productService.createProduct(request, currentUser);
+        ProductResponse product = productService.createProduct(request, currentUser);
         return ResponseEntity.status(HttpStatus.CREATED).body(product);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(
+    public ResponseEntity<ProductResponse> updateProduct(
             @PathVariable Long id,
             @Valid @RequestBody ProductRequest request,
             @AuthenticationPrincipal User currentUser) {
-        Product product = productService.updateProduct(id, request, currentUser);
+        ProductResponse product = productService.updateProduct(id, request, currentUser);
         return ResponseEntity.ok(product);
     }
 

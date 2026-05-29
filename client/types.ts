@@ -79,3 +79,91 @@ export interface AuditLog {
   userAgent: string;
   timestamp: string;
 }
+
+export interface DashboardProfitByOutlet {
+  name: string;
+  profit: number;
+}
+
+export interface DashboardTrendPoint {
+  date: string;
+  revenue: number;
+  profit: number;
+}
+
+export interface AdminDashboardData {
+  totalRevenue: number;
+  totalProfit: number;
+  avgMargin: number;
+  totalItems: number;
+  profitByOutlet: DashboardProfitByOutlet[];
+  trendData: DashboardTrendPoint[];
+}
+
+export interface InventoryLevel {
+  productId: number;
+  productName: string;
+  brand: string;
+  outletId: number;
+  outletName: string;
+  totalIn: number;
+  totalOut: number;
+  available: number;
+}
+
+export interface InventoryHistoryItem {
+  id: number;
+  date: string;
+  outletId: number;
+  outletName: string;
+  productId: number;
+  productName: string;
+  brand: string;
+  quantity: number;
+  reason: StockOutReason;
+  userName: string;
+  createdAt: string;
+}
+
+export interface AdminInventoryData {
+  outlets: Outlet[];
+  inventoryLevels: InventoryLevel[];
+  historyLog: InventoryHistoryItem[];
+}
+
+export interface ReportBatchEntry {
+  id: number;
+  productId: number;
+  productName: string;
+  brand: string;
+  outletName: string;
+  mrp: number;
+  quantity: number;
+  amount: number;
+  profit: number;
+  margin: number;
+  marginPerBottle: number;
+}
+
+export interface ReportBatch {
+  batchId: number;
+  entryDate: string;
+  createdAt: string;
+  batchNumber: number;
+  batchName?: string;
+  isChecked?: boolean;
+  itemCount: number;
+  totalAmount: number;
+  totalProfit: number;
+  entries: ReportBatchEntry[];
+}
+
+export interface ReportDateGroup {
+  date: string;
+  batches: ReportBatch[];
+}
+
+export interface AdminReportsData {
+  outlets: Outlet[];
+  dates: ReportDateGroup[];
+}
