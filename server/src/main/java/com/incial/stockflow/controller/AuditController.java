@@ -21,26 +21,6 @@ public class AuditController {
 
     @GetMapping
     public ResponseEntity<List<AuditLog>> getAllAuditLogs(
-            @AuthenticationPrincipal User currentUser) {
-
-        // Only ADMIN can access audit logs
-        if (currentUser.getRole() != UserRole.ADMIN) {
-            throw new ForbiddenException("Only administrators can access audit logs");
-        }
-
-        List<AuditLog> auditLogs = auditService.getAllAuditLogs();
-        return ResponseEntity.ok(auditLogs);
-    }
-
-    /**
-     * Get paginated audit logs (ADMIN only)
-     * Returns audit logs with pagination
-     *
-     * @param page Page number (0-indexed)
-     * @param size Number of records per page
-     */
-    @GetMapping("/paginated")
-    public ResponseEntity<List<AuditLog>> getAuditLogsPaginated(
             @AuthenticationPrincipal User currentUser,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {

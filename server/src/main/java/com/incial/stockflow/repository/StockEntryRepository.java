@@ -1,6 +1,7 @@
 package com.incial.stockflow.repository;
 
 import com.incial.stockflow.entity.StockEntry;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -16,10 +17,42 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
         int getTotalQuantity();
     }
 
+    interface BatchSummary {
+        long getEntryCount();
+        String getOutletName();
+        String getBatchName();
+    }
+
     List<StockEntry> findByOutletIdOrderByEntryDateDescCreatedAtDesc(Long outletId, Pageable pageable);
     List<StockEntry> findAllByOrderByEntryDateDescCreatedAtDesc(Pageable pageable);
     List<StockEntry> findByBatchId(Long batchId);
-    boolean existsByBatchId(Long batchId);
+
+    @Query("""
+    select count(se) as entryCount,
+           outlet.name as outletName,
+           max(se.batchName) as batchName
+    from StockEntry se
+    join se.outlet outlet
+    where se.batchId = :batchId
+    group by outlet.name
+""")
+    BatchSummary findBatchSummaryByBatchId(Long batchId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+    update StockEntry se
+    set se.batchName = coalesce(:batchName, se.batchName),
+        se.isChecked = coalesce(:isChecked, se.isChecked)
+    where se.batchId = :batchId
+""")
+    int updateBatchMetadata(Long batchId, String batchName, Boolean isChecked);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+    delete from StockEntry se
+    where se.batchId = :batchId
+""")
+    int deleteByBatchId(Long batchId);
     
     @Query("""
     select coalesce(sum(se.quantity), 0)

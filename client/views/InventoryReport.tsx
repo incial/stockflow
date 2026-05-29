@@ -2,7 +2,14 @@
 import React, { useState, useMemo } from 'react';
 import { StockEntry, StockOutEntry, Product, Outlet } from '../types';
 import { MOCK_USERS } from '../constants';
-import { formatDate } from '../utils/calculations';
+import {
+  buildOutletMap,
+  buildProductMap,
+  buildStockAggregateMap,
+  formatDate,
+  getAvailableStockFromAggregateMap,
+  getStockAggregate
+} from '../utils/calculations';
 import { Filter, History, Layers, Search, X } from 'lucide-react';
 import { CustomSelect } from '../components/CustomSelect';
 
@@ -19,6 +26,17 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
   const [activeTab, setActiveTab] = useState<Tab>('levels');
   const [filterOutlet, setFilterOutlet] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const productMap = useMemo(() => buildProductMap(products), [products]);
+  const outletMap = useMemo(() => buildOutletMap(outlets), [outlets]);
+  const stockAggregateMap = useMemo(
+    () => buildStockAggregateMap(entries, stockOuts),
+    [entries, stockOuts]
+  );
+  const mockUserMap = useMemo(
+    () => new Map(MOCK_USERS.map(user => [user.id, user])),
+    []
+  );
 
   const inventoryLevels = useMemo(() => {
     const levels: Array<{
@@ -40,8 +58,10 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
           const matches = product.name.toLowerCase().includes(lowerQuery) || product.brand.toLowerCase().includes(lowerQuery);
           if (!matches) return;
         }
-        const totalIn = entries.filter(e => e.outletId === outlet.id && e.productId === product.id).reduce((sum, e) => sum + e.quantity, 0);
-        const totalOut = stockOuts.filter(e => e.outletId === outlet.id && e.productId === product.id).reduce((sum, e) => sum + e.quantity, 0);
+        const aggregate = getStockAggregate(stockAggregateMap, product.id, outlet.id);
+        const available = getAvailableStockFromAggregateMap(stockAggregateMap, product.id, outlet.id);
+        const totalIn = aggregate?.totalIn ?? 0;
+        const totalOut = aggregate?.totalOut ?? 0;
 
         if (totalIn > 0 || totalOut > 0) {
           levels.push({
@@ -52,22 +72,22 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
             outletName: outlet.name,
             totalIn,
             totalOut,
-            available: totalIn - totalOut
+            available
           });
         }
       });
     });
     return levels;
-  }, [entries, stockOuts, products, outlets, filterOutlet, searchQuery]);
+  }, [products, outlets, stockAggregateMap, filterOutlet, searchQuery]);
 
   const historyLog = useMemo(() => {
     const lowerQuery = searchQuery.toLowerCase().trim();
     return stockOuts.filter(entry => {
         if (filterOutlet && String(entry.outletId) !== filterOutlet) return false;
         if (lowerQuery) {
-           const product = products.find(p => p.id === entry.productId);
-           const user = MOCK_USERS.find(u => u.id === entry.enteredBy);
-           const outlet = outlets.find(o => o.id === entry.outletId);
+           const product = productMap.get(entry.productId);
+           const user = mockUserMap.get(entry.enteredBy);
+           const outlet = outletMap.get(entry.outletId);
            const matches = 
              (product?.name || '').toLowerCase().includes(lowerQuery) ||
              (product?.brand || '').toLowerCase().includes(lowerQuery) ||
@@ -79,9 +99,9 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
         return true;
       })
       .map(entry => {
-        const product = products.find(p => p.id === entry.productId);
-        const outlet = outlets.find(o => o.id === entry.outletId);
-        const user = MOCK_USERS.find(u => u.id === entry.enteredBy);
+        const product = productMap.get(entry.productId);
+        const outlet = outletMap.get(entry.outletId);
+        const user = mockUserMap.get(entry.enteredBy);
         return {
           ...entry,
           productName: product?.name || 'Unknown',
@@ -91,7 +111,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ entries, stockOuts, p
         };
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [stockOuts, products, outlets, filterOutlet, searchQuery]);
+  }, [stockOuts, filterOutlet, searchQuery, productMap, outletMap, mockUserMap]);
 
   const outletOptions = [
     { value: '', label: 'All Outlets' },

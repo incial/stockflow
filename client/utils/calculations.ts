@@ -1,13 +1,100 @@
 
 import { StockEntry, StockOutEntry, Product, Outlet, EnrichedStockEntry } from '../types';
 
+export interface StockAggregate {
+  totalIn: number;
+  totalOut: number;
+  available: number;
+}
+
+export interface StockLookupMaps {
+  productMap: Map<number, Product>;
+  outletMap: Map<number, Outlet>;
+}
+
+export const buildProductMap = (products: Product[]): Map<number, Product> =>
+  new Map(products.map(product => [product.id, product]));
+
+export const buildOutletMap = (outlets: Outlet[]): Map<number, Outlet> =>
+  new Map(outlets.map(outlet => [outlet.id, outlet]));
+
+export const buildStockLookupMaps = (
+  products: Product[],
+  outlets: Outlet[]
+): StockLookupMaps => ({
+  productMap: buildProductMap(products),
+  outletMap: buildOutletMap(outlets)
+});
+
+export const getStockAggregateKey = (productId: number, outletId: number): string =>
+  `${outletId}:${productId}`;
+
+export const buildStockAggregateMap = (
+  stockInEntries: StockEntry[],
+  stockOutEntries: StockOutEntry[]
+): Map<string, StockAggregate> => {
+  const aggregates = new Map<string, StockAggregate>();
+
+  const getOrCreateAggregate = (productId: number, outletId: number): StockAggregate => {
+    const key = getStockAggregateKey(productId, outletId);
+    const existing = aggregates.get(key);
+    if (existing) {
+      return existing;
+    }
+
+    const created: StockAggregate = { totalIn: 0, totalOut: 0, available: 0 };
+    aggregates.set(key, created);
+    return created;
+  };
+
+  stockInEntries.forEach(entry => {
+    const aggregate = getOrCreateAggregate(entry.productId, entry.outletId);
+    aggregate.totalIn += entry.quantity;
+    aggregate.available += entry.quantity;
+  });
+
+  stockOutEntries.forEach(entry => {
+    const aggregate = getOrCreateAggregate(entry.productId, entry.outletId);
+    aggregate.totalOut += entry.quantity;
+    aggregate.available -= entry.quantity;
+  });
+
+  return aggregates;
+};
+
+export const getStockAggregate = (
+  aggregateMap: Map<string, StockAggregate>,
+  productId: number,
+  outletId: number
+): StockAggregate | undefined => aggregateMap.get(getStockAggregateKey(productId, outletId));
+
+export const getAvailableStockFromAggregateMap = (
+  aggregateMap: Map<string, StockAggregate>,
+  productId: number,
+  outletId: number
+): number => getStockAggregate(aggregateMap, productId, outletId)?.available ?? 0;
+
 export const calculateEntryMetrics = (
   entry: StockEntry,
   products: Product[],
   outlets: Outlet[]
 ): EnrichedStockEntry => {
-  const product = products.find(p => p.id === entry.productId);
-  const outlet = outlets.find(o => o.id === entry.outletId);
+  const { productMap, outletMap } = buildStockLookupMaps(products, outlets);
+
+  return calculateEntryMetricsWithMaps(
+    entry,
+    productMap,
+    outletMap
+  );
+};
+
+export const calculateEntryMetricsWithMaps = (
+  entry: StockEntry,
+  productMap: Map<number, Product>,
+  outletMap: Map<number, Outlet>
+): EnrichedStockEntry => {
+  const product = productMap.get(entry.productId);
+  const outlet = outletMap.get(entry.outletId);
 
   // Fallback values if data is missing (e.g. deleted product/outlet or data sync issue)
   const productName = product?.name || 'Unknown Product';
@@ -85,13 +172,6 @@ export const getAvailableStock = (
   stockInEntries: StockEntry[],
   stockOutEntries: StockOutEntry[]
 ): number => {
-  const totalIn = stockInEntries
-    .filter(e => e.productId === productId && e.outletId === outletId)
-    .reduce((sum, e) => sum + e.quantity, 0);
-
-  const totalOut = stockOutEntries
-    .filter(e => e.productId === productId && e.outletId === outletId)
-    .reduce((sum, e) => sum + e.quantity, 0);
-
-  return totalIn - totalOut;
+  const aggregateMap = buildStockAggregateMap(stockInEntries, stockOutEntries);
+  return getAvailableStockFromAggregateMap(aggregateMap, productId, outletId);
 };

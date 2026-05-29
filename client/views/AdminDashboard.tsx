@@ -1,7 +1,12 @@
 
 import React, { useMemo } from 'react';
 import { StockEntry, Product, Outlet } from '../types';
-import { calculateEntryMetrics, formatCurrency } from '../utils/calculations';
+import {
+  buildOutletMap,
+  buildProductMap,
+  calculateEntryMetricsWithMaps,
+  formatCurrency
+} from '../utils/calculations';
 import { 
   AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer, 
   Tooltip, XAxis, YAxis, CartesianGrid 
@@ -15,9 +20,12 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ entries, products, outlets }) => {
+  const productMap = useMemo(() => buildProductMap(products), [products]);
+  const outletMap = useMemo(() => buildOutletMap(outlets), [outlets]);
+
   const enrichedEntries = useMemo(() => 
-    entries.map(e => calculateEntryMetrics(e, products, outlets)),
-    [entries, products, outlets]
+    entries.map(entry => calculateEntryMetricsWithMaps(entry, productMap, outletMap)),
+    [entries, productMap, outletMap]
   );
 
   const stats = useMemo(() => {
@@ -41,7 +49,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ entries, products, outl
   // Chart data: Trend over time
   const trendData = useMemo(() => {
     const data: Record<string, { revenue: number, profit: number }> = {};
-    enrichedEntries.sort((a,b) => a.entryDate.localeCompare(b.entryDate)).forEach(e => {
+    [...enrichedEntries].sort((a,b) => a.entryDate.localeCompare(b.entryDate)).forEach(e => {
       if (!data[e.entryDate]) data[e.entryDate] = { revenue: 0, profit: 0 };
       data[e.entryDate].revenue += e.revenue;
       data[e.entryDate].profit += e.profit;

@@ -7,6 +7,7 @@ import com.incial.stockflow.dto.response.StockEntryResponse;
 import com.incial.stockflow.entity.*;
 import com.incial.stockflow.exception.BusinessException;
 import com.incial.stockflow.exception.ForbiddenException;
+import com.incial.stockflow.repository.BatchReferenceRepository;
 import com.incial.stockflow.repository.StockEntryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -18,7 +19,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +27,7 @@ public class StockInService {
     private static final int MAX_PAGE_SIZE = 500;
 
     private final StockEntryRepository stockEntryRepository;
+    private final BatchReferenceRepository batchReferenceRepository;
     private final OutletService outletService;
     private final ProductService productService;
     private final AuditService auditService;
@@ -134,7 +135,7 @@ public class StockInService {
 
         List<StockEntry> entriesToSave = new ArrayList<>();
         List<StockEntryResponse> responses = new ArrayList<>();
-        Long batchId = generateBatchId();
+        Long batchId = reserveBatchId();
 
         for (StockInItemRequest item : request.getItems()) {
             Product product = productsById.get(item.getProductId());
@@ -186,27 +187,18 @@ public class StockInService {
             throw new ForbiddenException("Only administrators can update batch information");
         }
 
-        // Find all entries with the given batchId
-        List<StockEntry> entries = stockEntryRepository.findByBatchId(request.getBatchId());
-        
-        if (entries.isEmpty()) {
+        int updatedCount = stockEntryRepository.updateBatchMetadata(
+                request.getBatchId(),
+                request.getBatchName(),
+                request.getIsChecked()
+        );
+
+        if (updatedCount == 0) {
             throw new BusinessException(
                     "BIZ_003",
                     "No entries found with batch ID: " + request.getBatchId()
             );
         }
-
-        // Update all entries in the batch
-        entries.forEach(entry -> {
-            if (request.getBatchName() != null) {
-                entry.setBatchName(request.getBatchName());
-            }
-            if (request.getIsChecked() != null) {
-                entry.setIsChecked(request.getIsChecked());
-            }
-        });
-
-        stockEntryRepository.saveAll(entries);
 
         // Audit
         auditService.logAction(
@@ -230,10 +222,10 @@ public class StockInService {
             throw new ForbiddenException("Only administrators can delete batches");
         }
 
-        // Find all entries with the given batchId
-        List<StockEntry> entries = stockEntryRepository.findByBatchId(batchId);
-        
-        if (entries.isEmpty()) {
+        StockEntryRepository.BatchSummary batchSummary =
+                stockEntryRepository.findBatchSummaryByBatchId(batchId);
+
+        if (batchSummary == null || batchSummary.getEntryCount() == 0) {
             throw new BusinessException(
                     "BIZ_004",
                     "No entries found with batch ID: " + batchId
@@ -241,12 +233,12 @@ public class StockInService {
         }
 
         // Get batch info for audit log
-        int entryCount = entries.size();
-        String outletName = entries.get(0).getOutlet().getName();
-        String batchName = entries.get(0).getBatchName();
+        long entryCount = batchSummary.getEntryCount();
+        String outletName = batchSummary.getOutletName();
+        String batchName = batchSummary.getBatchName();
 
         // Delete all entries in the batch
-        stockEntryRepository.deleteAll(entries);
+        stockEntryRepository.deleteByBatchId(batchId);
 
         // Audit
         auditService.logAction(
@@ -278,14 +270,7 @@ public class StockInService {
                 .build();
     }
 
-    private Long generateBatchId() {
-        for (int attempt = 0; attempt < 10; attempt++) {
-            long candidate = ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE);
-            if (!stockEntryRepository.existsByBatchId(candidate)) {
-                return candidate;
-            }
-        }
-
-        throw new IllegalStateException("Unable to generate a unique batch ID");
+    private Long reserveBatchId() {
+        return batchReferenceRepository.save(BatchReference.builder().build()).getId();
     }
 }

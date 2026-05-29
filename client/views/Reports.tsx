@@ -1,6 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { StockEntry, Product, EnrichedStockEntry, Outlet, User, UserRole } from '../types';
-import { calculateEntryMetrics, formatDateTime } from '../utils/calculations';
+import {
+  buildOutletMap,
+  buildProductMap,
+  calculateEntryMetricsWithMaps,
+  formatDateTime
+} from '../utils/calculations';
 import { FileDown, CalendarDays, Filter, Edit2, Check, X, Trash2 } from 'lucide-react';
 import { CustomSelect } from '../components/CustomSelect';
 import { api } from '../services/api';
@@ -40,6 +45,8 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [batchToDelete, setBatchToDelete] = useState<BatchGroup | null>(null);
   const { addToast } = useToast();
+  const productMap = useMemo(() => buildProductMap(products), [products]);
+  const outletMap = useMemo(() => buildOutletMap(outlets), [outlets]);
 
   const reportData = useMemo<ReportDataState>(() => {
     // Filter entries by outlet if needed
@@ -51,7 +58,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
     const batchMap: Record<number, EnrichedStockEntry[]> = {};
     
     filteredEntries.forEach(e => {
-      const metrics = calculateEntryMetrics(e, products, outlets);
+      const metrics = calculateEntryMetricsWithMaps(e, productMap, outletMap);
       
       // Use batchId if available, otherwise fall back to createdAt for old entries
       let batchKey: number;
@@ -112,7 +119,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, products, outlets, currentUs
     const sortedDates = Object.keys(batchesByDate).sort().reverse();
 
     return { batchesByDate, sortedDates };
-  }, [entries, products, outlets, filterOutlet, localBatchUpdates]);
+  }, [entries, filterOutlet, localBatchUpdates, productMap, outletMap]);
 
   useEffect(() => {
     if (reportData.sortedDates.length > 0 && !selectedDate) {

@@ -20,6 +20,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class AuditService {
+    private static final int MAX_PAGE_SIZE = 200;
 
     private final AuditLogRepository auditLogRepository;
     private static final int MAX_AUDIT_LOGS = 50;
@@ -56,12 +57,12 @@ public class AuditService {
     }
 
     public List<AuditLog> getAllAuditLogs(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "timestamp"));
+        Pageable pageable = PageRequest.of(
+                Math.max(page, 0),
+                Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
+                Sort.by(Sort.Direction.DESC, "timestamp")
+        );
         return auditLogRepository.findAll(pageable).getContent();
-    }
-
-    public List<AuditLog> getAllAuditLogs() {
-        return auditLogRepository.findAllByOrderByTimestampDesc();
     }
 
     private HttpServletRequest getCurrentHttpRequest() {

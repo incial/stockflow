@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { User, StockEntry, Product } from '../types';
-import { Save, Calendar, Store, Info, Plus, Trash2, PackagePlus, Layers, Edit2, AlertTriangle, X } from 'lucide-react';
+import { Save, Calendar, Store, Info, Plus, Trash2, PackagePlus, Layers, Edit2, AlertTriangle, X, Search } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
 import ConfirmationModal, { ConfirmationItem } from '../components/ConfirmationModal';
-import { formatFullDate } from '../utils/calculations';
+import { buildProductMap, formatFullDate } from '../utils/calculations';
 import { 
   validatePositiveInteger, 
   validatePositiveDecimal, 
@@ -40,6 +40,9 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   
   const [formData, setFormData] = useState<Record<string, { qty: string, amt: string }>>({});
+
+  // Universal product search
+  const [searchQuery, setSearchQuery] = useState('');
   
   // State for completely new categories
   const [customTables, setCustomTables] = useState<CustomTable[]>([]);
@@ -77,6 +80,18 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
     });
     return grouped;
   }, [products]);
+  const productMap = useMemo(() => buildProductMap(products), [products]);
+
+  const isSearching = searchQuery.trim().length > 0;
+
+  const filteredProducts = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return products.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p.brand.toLowerCase().includes(q)
+    );
+  }, [searchQuery, products]);
 
   const handleInputChange = (productId: number, field: 'qty' | 'amt', value: string) => {
     // Sanitize input based on field type
@@ -271,7 +286,7 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
     (Object.entries(formData) as [string, { qty: string, amt: string }][]).forEach(([productId, data]) => {
       const numericProductId = Number(productId);
       if (data.qty && data.amt) {
-        const product = products.find(p => p.id === numericProductId);
+        const product = productMap.get(numericProductId);
         if (product) {
           confirmItems.push({
             id: productId,
@@ -617,6 +632,23 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
         </div>
       </header>
 
+      {/* Universal Search Bar */}
+      <div className="relative group">
+        <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search products by name or brand…"
+          className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-2xl shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-medium text-slate-700 placeholder-slate-400 transition-all"
+        />
+        {isSearching && (
+          <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+            <X size={16} />
+          </button>
+        )}
+      </div>
+
       <div className="bg-indigo-50/50 backdrop-blur-sm border border-indigo-100 p-5 rounded-[24px] flex items-start gap-4 text-indigo-800 text-sm">
         <div className="p-2 bg-indigo-100 rounded-full shrink-0">
             <Info size={18} />
@@ -624,8 +656,73 @@ const RefillerDashboard: React.FC<RefillerDashboardProps> = ({ user, products, o
         <p className="mt-1 leading-relaxed">Enter quantity and <strong>total cost</strong> for the entire stock quantity. Total cost should be less than (Quantity × MRP) to ensure profit.</p>
       </div>
 
-      {/* Standard Product Tables */}
-      <div className="space-y-8">
+      {/* Search Results Panel */}
+      {isSearching && (
+        <div className="glass-panel rounded-[32px] overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-slate-900/5 px-8 py-5 flex items-center gap-3 border-b border-white/10">
+            <Search size={18} className="text-indigo-500" />
+            <span className="text-slate-800 font-bold text-lg">
+              {filteredProducts.length > 0
+                ? `${filteredProducts.length} result${filteredProducts.length !== 1 ? 's' : ''} for "${searchQuery.trim()}"`
+                : `No results for "${searchQuery.trim()}"`}
+            </span>
+          </div>
+          {filteredProducts.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="bg-slate-100 p-4 rounded-full inline-block mb-4"><Search size={28} className="text-slate-300" /></div>
+              <p className="text-slate-500 font-medium">No products match your search.</p>
+              <p className="text-xs text-slate-400 mt-1">Try a different name or brand.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    <th className="px-8 py-5 w-16">#</th>
+                    <th className="px-8 py-5 min-w-[180px]">Item Name</th>
+                    <th className="px-8 py-5 min-w-[120px]">Brand</th>
+                    <th className="px-8 py-5 w-36 text-center">MRP (₹)</th>
+                    <th className="px-8 py-5 w-40 text-center">Stock</th>
+                    <th className="px-8 py-5 w-48 text-center">Total Cost (₹)</th>
+                    <th className="px-8 py-5 w-24 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50/50">
+                  {filteredProducts.map((p, idx) => (
+                    <tr key={p.id} className="hover:bg-slate-50/80 transition-colors group">
+                      <td className="px-8 py-4 text-xs text-slate-300 font-mono">{idx + 1}</td>
+                      <td className="px-8 py-4 text-sm font-semibold text-slate-700">{p.name}</td>
+                      <td className="px-8 py-4"><span className="text-xs font-bold bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full">{p.brand}</span></td>
+                      <td className="px-8 py-4 text-sm text-center font-mono text-slate-500">{p.mrp.toFixed(2)}</td>
+                      <td className="px-8 py-4">
+                        <input type="number" placeholder="0" min="0" max="99999" step="1"
+                          value={formData[p.id]?.qty || ''}
+                          onChange={e => handleInputChange(p.id, 'qty', e.target.value)}
+                          className="w-full text-center py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold transition-all" />
+                      </td>
+                      <td className="px-8 py-4">
+                        <input type="number" placeholder="0.00" min="0" max="9999999.99" step="0.01"
+                          value={formData[p.id]?.amt || ''}
+                          onChange={e => handleInputChange(p.id, 'amt', e.target.value)}
+                          className="w-full text-center py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-bold text-indigo-600 transition-all focus:bg-white" />
+                      </td>
+                      <td className="px-8 py-4 text-center">
+                        <div className="flex items-center justify-center gap-2 opacity-30 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => initiateEdit(p)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors" title="Edit Product"><Edit2 size={16} /></button>
+                          <button onClick={() => setDeletingProduct(p)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Delete Product"><Trash2 size={16} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Standard Product Tables – hidden while searching */}
+      <div className={`space-y-8 ${isSearching ? 'hidden' : ''}`}>
         {(Object.entries(productsByBrand) as [string, Product[]][]).map(([brand, products]) => (
           <div key={brand} className="glass-panel rounded-[32px] overflow-hidden">
             <div className="bg-slate-900/5 px-8 py-5 flex items-center gap-3 border-b border-white/10">

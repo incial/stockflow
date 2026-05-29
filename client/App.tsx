@@ -43,23 +43,22 @@ const AppContent: React.FC = () => {
     setIsGlobalLoading(true);
     try {
       const outletFilter = currentUser.role === UserRole.REFILLER ? (currentUser.outletId || undefined) : undefined;
+      const outletsPromise = currentUser.role === UserRole.ADMIN
+        ? api.outlets.getAll()
+        : Promise.resolve<Outlet[]>([]);
 
       // Parallel fetch for core data
-      const [fetchedProducts, fetchedEntries, fetchedStockOuts] = await Promise.all([
+      const [fetchedProducts, fetchedEntries, fetchedStockOuts, fetchedOutlets] = await Promise.all([
         api.products.getAll(),
         api.stockIn.getAll(outletFilter),
-        api.stockOut.getAll(outletFilter)
+        api.stockOut.getAll(outletFilter),
+        outletsPromise
       ]);
       
-      setProducts(fetchedProducts as Product[]);
-      setEntries(fetchedEntries as StockEntry[]);
-      setStockOuts(fetchedStockOuts as StockOutEntry[]);
-
-      // Fetch outlets if Admin
-      if (currentUser.role === UserRole.ADMIN) {
-        const fetchedOutlets = await api.outlets.getAll();
-        setOutlets(fetchedOutlets as Outlet[]);
-      }
+      setProducts(fetchedProducts);
+      setEntries(fetchedEntries);
+      setStockOuts(fetchedStockOuts);
+      setOutlets(fetchedOutlets);
 
     } catch (error: any) {
       console.error("Failed to load data", error);

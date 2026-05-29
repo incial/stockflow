@@ -14,7 +14,6 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     List<AuditLog> findByUserIdOrderByTimestampDesc(Long userId);
     List<AuditLog> findByActionOrderByTimestampDesc(String action);
     List<AuditLog> findByTimestampBetweenOrderByTimestampDesc(LocalDateTime start, LocalDateTime end);
-    List<AuditLog> findAllByOrderByTimestampDesc();
 
     @Modifying
     @Query(value = """

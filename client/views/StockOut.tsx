@@ -1,6 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { User, StockEntry, StockOutEntry, Product } from '../types';
-import { getAvailableStock, formatFullDate } from '../utils/calculations';
+import {
+  buildProductMap,
+  buildStockAggregateMap,
+  formatFullDate,
+  getAvailableStockFromAggregateMap
+} from '../utils/calculations';
 import { Save, Calendar, PackageMinus, Info, Layers, PackageOpen, Search, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import ConfirmationModal, { ConfirmationItem } from '../components/ConfirmationModal';
@@ -56,6 +61,12 @@ const StockOut: React.FC<StockOutProps> = ({
     });
     return grouped;
   }, [products]);
+  const productMap = useMemo(() => buildProductMap(products), [products]);
+
+  const stockAggregateMap = useMemo(
+    () => buildStockAggregateMap(stockEntries, stockOutEntries),
+    [stockEntries, stockOutEntries]
+  );
 
   const availableInventory = useMemo(() => {
     const result: { brand: string; items: Product[] }[] = [];
@@ -63,7 +74,7 @@ const StockOut: React.FC<StockOutProps> = ({
 
     (Object.entries(productsByBrand) as [string, Product[]][]).forEach(([brand, items]) => {
       const availableItems = items.filter(p => {
-        const stock = getAvailableStock(p.id, user.outletId!, stockEntries, stockOutEntries);
+        const stock = getAvailableStockFromAggregateMap(stockAggregateMap, p.id, user.outletId!);
         if (stock <= 0) return false;
         if (lowerQuery) {
           return p.name.toLowerCase().includes(lowerQuery) || p.brand.toLowerCase().includes(lowerQuery);
@@ -76,7 +87,7 @@ const StockOut: React.FC<StockOutProps> = ({
     });
 
     return result;
-  }, [productsByBrand, user.outletId, stockEntries, stockOutEntries, searchQuery]);
+  }, [productsByBrand, user.outletId, stockAggregateMap, searchQuery]);
 
   const handleInputChange = (productId: number, value: string) => {
     // Sanitize input - no decimals for quantity
@@ -91,8 +102,8 @@ const StockOut: React.FC<StockOutProps> = ({
 
     // Validate against available stock
     if (sanitized) {
-      const available = getAvailableStock(productId, user.outletId!, stockEntries, stockOutEntries);
-      const product = products.find(p => p.id === productId);
+      const available = getAvailableStockFromAggregateMap(stockAggregateMap, productId, user.outletId!);
+      const product = productMap.get(productId);
       const stockValidation = validateStockAvailability(parseFloat(sanitized), available, product?.name);
       if (!stockValidation.isValid) {
         addToast(stockValidation.error || 'Insufficient stock', 'error');
@@ -111,8 +122,12 @@ const StockOut: React.FC<StockOutProps> = ({
       const numericProductId = Number(productId);
       const qty = parseFloat(qtyStr);
       if (qty > 0) {
-        const available = getAvailableStock(numericProductId, user.outletId!, stockEntries, stockOutEntries);
-        const product = products.find(p => p.id === numericProductId);
+        const available = getAvailableStockFromAggregateMap(
+          stockAggregateMap,
+          numericProductId,
+          user.outletId!
+        );
+        const product = productMap.get(numericProductId);
         if (qty > available) {
           error = `Cannot remove ${qty} of ${product?.name}. Only ${available} available.`;
           return;
@@ -165,7 +180,7 @@ const StockOut: React.FC<StockOutProps> = ({
     });
 
     onAddStockOut(newStockOuts);
-    setFormData({});
+    setFormData({}); 
     setShowConfirmation(false);
     addToast(`Successfully recorded ${newStockOuts.length} stock out entries.`, "success");
   };
@@ -273,7 +288,11 @@ const StockOut: React.FC<StockOutProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-50/50">
                     {items.map((p, idx) => {
-                      const available = getAvailableStock(p.id, user.outletId!, stockEntries, stockOutEntries);
+                      const available = getAvailableStockFromAggregateMap(
+                        stockAggregateMap,
+                        p.id,
+                        user.outletId!
+                      );
                       return (
                         <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="px-8 py-4 text-xs text-slate-300 font-mono">{idx + 1}</td>

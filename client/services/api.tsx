@@ -22,6 +22,11 @@ interface BatchResponse<T> {
   entries: T[];
 }
 
+interface FetchAllPagesOptions {
+  outletId?: number;
+  pageSize?: number;
+}
+
 interface StockInBatchRequest {
   outletId: number;
   entryDate: string; // YYYY-MM-DD
@@ -110,6 +115,48 @@ const handleResponse = async <T,>(response: Response): Promise<T> => {
 
   // Throw error with detailed message
   throw new Error(errorData.message || `Request failed with status ${response.status}`);
+};
+
+const buildPagedQuery = (params: Record<string, string | number | undefined>): string => {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      searchParams.set(key, String(value));
+    }
+  });
+
+  const query = searchParams.toString();
+  return query ? `?${query}` : '';
+};
+
+const fetchAllPages = async <T,>(
+  path: string,
+  { outletId, pageSize = 500 }: FetchAllPagesOptions = {}
+): Promise<T[]> => {
+  const results: T[] = [];
+
+  for (let page = 0; page < 1000; page += 1) {
+    const query = buildPagedQuery({
+      outletId,
+      page,
+      size: pageSize
+    });
+
+    const response = await fetch(`${API_BASE_URL}${path}${query}`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+
+    const pageItems = await handleResponse<T[]>(response);
+    results.push(...pageItems);
+
+    if (pageItems.length < pageSize) {
+      return results;
+    }
+  }
+
+  throw new Error(`Exceeded pagination safety limit while loading ${path}`);
 };
 
 // ============================================
@@ -237,12 +284,7 @@ export const api = {
      * @returns Array of stock entries
      */
     getAll: async (outletId?: number): Promise<StockEntry[]> => {
-      const query = outletId ? `?outletId=${outletId}` : '';
-      const response = await fetch(`${API_BASE_URL}/stock-in${query}`, {
-        method: 'GET',
-        headers: getHeaders(),
-      });
-      return handleResponse<StockEntry[]>(response);
+      return fetchAllPages<StockEntry>('/stock-in', { outletId, pageSize: 500 });
     },
 
     /**
@@ -297,12 +339,7 @@ export const api = {
      * @returns Array of stock out entries
      */
     getAll: async (outletId?: number): Promise<StockOutEntry[]> => {
-      const query = outletId ? `?outletId=${outletId}` : '';
-      const response = await fetch(`${API_BASE_URL}/stock-out${query}`, {
-        method: 'GET',
-        headers: getHeaders(),
-      });
-      return handleResponse<StockOutEntry[]>(response);
+      return fetchAllPages<StockOutEntry>('/stock-out', { outletId, pageSize: 500 });
     },
 
     /**
@@ -328,11 +365,7 @@ export const api = {
      * Get all audit logs
      */
     getAll: async (): Promise<AuditLog[]> => {
-      const response = await fetch(`${API_BASE_URL}/audit`, {
-        method: 'GET',
-        headers: getHeaders(),
-      });
-      return handleResponse<AuditLog[]>(response);
+      return fetchAllPages<AuditLog>('/audit', { pageSize: 50 });
     },
   }
 };
