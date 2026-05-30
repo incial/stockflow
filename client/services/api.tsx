@@ -4,8 +4,10 @@ import {
   AdminInventoryData,
   AdminReportsData,
   AuditLog,
+  AuditLogPageData,
   Outlet,
   Product,
+  RefillerReportsData,
   StockEntry,
   StockOutEntry,
   StockOutReason,
@@ -327,6 +329,30 @@ export const api = {
       return handleResponse<void>(response);
     },
 
+    getRefillerReports: async (date?: string): Promise<RefillerReportsData> => {
+      const query = buildPagedQuery({ date });
+      const response = await fetch(`${API_BASE_URL}/stock-in/refiller-reports${query}`, {
+        method: 'GET',
+        headers: getHeaders(),
+      });
+      const payload = await handleResponse<RefillerReportsData>(response);
+
+      return {
+        selectedDate: payload.selectedDate ?? null,
+        dates: payload.dates ?? [],
+        batches: payload.batches ?? [],
+      };
+    },
+
+    updateEntry: async (entryId: number, quantity: number, amount: number): Promise<void> => {
+      const response = await fetch(`${API_BASE_URL}/stock-in/entry`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({ entryId, quantity, amount }),
+      });
+      return handleResponse<void>(response);
+    },
+
     /**
      * Delete an entire batch by batch ID (ADMIN only)
      * @param batchId Batch ID to delete
@@ -375,8 +401,21 @@ export const api = {
     /**
      * Get all audit logs
      */
-    getAll: async (): Promise<AuditLog[]> => {
-      return fetchAllPages<AuditLog>('/audit', { pageSize: 50 });
+    getAll: async (page = 0, size = 20): Promise<AuditLogPageData> => {
+      const query = buildPagedQuery({ page, size });
+      const response = await fetch(`${API_BASE_URL}/audit${query}`, {
+        method: 'GET',
+        headers: getHeaders(),
+      });
+      const payload = await handleResponse<AuditLogPageData>(response);
+
+      return {
+        logs: payload.logs ?? [],
+        page: Number.isFinite(payload.page) ? payload.page : page,
+        size: Number.isFinite(payload.size) && payload.size > 0 ? payload.size : size,
+        totalElements: Number.isFinite(payload.totalElements) && payload.totalElements >= 0 ? payload.totalElements : 0,
+        totalPages: Number.isFinite(payload.totalPages) && payload.totalPages >= 0 ? payload.totalPages : 0,
+      };
     },
   },
 

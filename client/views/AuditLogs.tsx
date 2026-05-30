@@ -2,26 +2,31 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { api } from '../services/api';
 import { AuditLog } from '../types';
-import { Loader2, ShieldAlert, Clock, Tag, Search, Filter, X } from 'lucide-react';
+import { Loader2, ShieldAlert, Clock, Tag, Search, Filter, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { CustomSelect } from '../components/CustomSelect';
-import { formatDateTime } from '../utils/calculations';
+import { formatIndianReadableDate, formatIndianTime } from '../utils/calculations';
 
 const AuditLogs: React.FC = () => {
+  const PAGE_SIZE = 20;
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
   const { addToast } = useToast();
 
   useEffect(() => {
     fetchLogs();
-  }, []);
+  }, [page]);
 
   const fetchLogs = async () => {
     try {
-      const data = await api.audit.getAll();
-      const cleanLogs = data.filter(log => {
+      setLoading(true);
+      const data = await api.audit.getAll(page, PAGE_SIZE);
+      const cleanLogs = data.logs.filter(log => {
         const action = (log.action || '').toUpperCase();
         const details = (log.details || '').toUpperCase();
         if (action.includes('LOGIN') || action.includes('SIGN') || action.includes('AUTH')) return false;
@@ -29,6 +34,8 @@ const AuditLogs: React.FC = () => {
         return true;
       });
       setLogs(cleanLogs);
+      setTotalElements(data.totalElements);
+      setTotalPages(data.totalPages);
     } catch (error: any) {
       addToast(error.message || 'Failed to load audit logs', 'error');
     } finally {
@@ -49,6 +56,7 @@ const AuditLogs: React.FC = () => {
         const query = searchQuery.toLowerCase();
         const matches = 
           log.userName.toLowerCase().includes(query) ||
+          (log.userOutletName || '').toLowerCase().includes(query) ||
           log.entityType.toLowerCase().includes(query) ||
           String(log.entityId || '').toLowerCase().includes(query) ||
           log.details.toLowerCase().includes(query) ||
@@ -75,6 +83,9 @@ const AuditLogs: React.FC = () => {
     { value: 'UPDATE', label: 'Update / Edit' },
     { value: 'DELETE', label: 'Delete / Remove' }
   ];
+
+  const showingFrom = totalElements === 0 ? 0 : (page * PAGE_SIZE) + 1;
+  const showingTo = totalElements === 0 ? 0 : Math.min((page + 1) * PAGE_SIZE, totalElements);
 
   if (loading) {
     return (
@@ -126,6 +137,33 @@ const AuditLogs: React.FC = () => {
         />
       </div>
 
+      <div className="glass-panel px-4 py-3 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="text-sm text-slate-500">
+          Showing {showingFrom}-{showingTo} of {totalElements}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+            disabled={page <= 0 || loading}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft size={16} />
+            Prev
+          </button>
+          <div className="text-sm font-semibold text-slate-700 min-w-[88px] text-center">
+            Page {totalPages === 0 ? 0 : page + 1} / {totalPages}
+          </div>
+          <button
+            onClick={() => setPage((prev) => prev + 1)}
+            disabled={loading || page + 1 >= totalPages}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
       <div className="glass-panel rounded-[32px] overflow-hidden min-h-[500px]">
         {filteredLogs.length === 0 ? (
           <div className="p-20 text-center">
@@ -159,9 +197,12 @@ const AuditLogs: React.FC = () => {
                 {filteredLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-slate-600 font-mono text-xs">
+                      <div className="flex items-start gap-2 text-slate-600 text-xs">
                         <Clock size={14} className="text-slate-400" />
-                        {formatDateTime(log.timestamp)}
+                        <div>
+                          <div className="font-mono">{formatIndianTime(log.timestamp)}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{formatIndianReadableDate(log.timestamp)}</div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -172,6 +213,9 @@ const AuditLogs: React.FC = () => {
                         <div>
                           <div className="text-sm font-bold text-slate-700">{log.userName}</div>
                           <div className="text-[10px] text-slate-400">{log.userEmail}</div>
+                          <div className="text-[10px] text-sky-600 font-semibold mt-0.5">
+                            {log.userOutletName || 'Admin'}
+                          </div>
                         </div>
                       </div>
                     </td>

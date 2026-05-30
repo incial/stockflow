@@ -1,7 +1,9 @@
 package com.incial.stockflow.controller;
 
 import com.incial.stockflow.dto.request.BatchUpdateRequest;
+import com.incial.stockflow.dto.request.RefillerStockEntryUpdateRequest;
 import com.incial.stockflow.dto.request.StockInBatchRequest;
+import com.incial.stockflow.dto.response.RefillerReportsResponse;
 import com.incial.stockflow.dto.response.StockEntryResponse;
 import com.incial.stockflow.dto.response.StockInBatchResponse;
 import com.incial.stockflow.entity.User;
@@ -69,5 +71,22 @@ public class StockInController {
     ) {
         stockInService.deleteBatch(batchId, currentUser);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/refiller-reports")
+    public ResponseEntity<RefillerReportsResponse> getRefillerReports(
+            @RequestParam(required = false) String date,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        return ResponseEntity.ok(stockInService.getRefillerReports(currentUser, date));
+    }
+
+    @PatchMapping("/entry")
+    public ResponseEntity<Void> updateEntry(
+            @Valid @RequestBody RefillerStockEntryUpdateRequest request,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        stockInService.updateEntry(request, currentUser);
+        return ResponseEntity.ok().build();
     }
 }

@@ -4,7 +4,7 @@ import { CustomSelect } from '../components/CustomSelect';
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
 import { AdminReportsData, ReportBatch, User } from '../types';
-import { formatDateTime } from '../utils/calculations';
+import { formatIndianDate, formatIndianTime } from '../utils/calculations';
 import { validateText } from '../utils/validation';
 
 interface ReportsProps {
@@ -82,6 +82,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [data, setData] = useState<AdminReportsData>(emptyReportsData);
+  const [calendarDate, setCalendarDate] = useState('');
   const { addToast } = useToast();
 
   const outletId = filterOutlet ? Number(filterOutlet) : undefined;
@@ -97,6 +98,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
         batches: response.batches
       });
       setSelectedDate(response.selectedDate ?? date);
+      setCalendarDate(response.selectedDate ?? date);
     } catch (error: any) {
       addToast(error.message || 'Failed to load report details', 'error');
     } finally {
@@ -108,10 +110,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
     try {
       setSummaryLoading(true);
       const response = await api.admin.getReports(outletId);
-      const nextDate =
-        preferredDate && response.dates.some((group) => group.date === preferredDate)
-          ? preferredDate
-          : response.selectedDate;
+      const nextDate = preferredDate || response.selectedDate;
 
       setData({
         outlets: response.outlets,
@@ -120,6 +119,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
         batches: []
       });
       setSelectedDate(nextDate);
+      setCalendarDate(nextDate ?? '');
 
       if (nextDate) {
         await loadReportDetails(nextDate, response.outlets, response.dates);
@@ -137,6 +137,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
 
   const handleDateChange = async (date: string) => {
     setSelectedDate(date);
+    setCalendarDate(date);
     setData((previous) => ({
       ...previous,
       selectedDate: date,
@@ -221,10 +222,10 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
       ['Date', 'Batch Number', 'Batch Name', 'Created At', 'Product', 'Brand', 'Outlet', 'Quantity', 'MRP', 'Amount', 'Profit', 'Margin Per Bottle', 'Margin %'],
       ...data.batches.flatMap((batch) =>
         batch.entries.map((entry) => [
-          batch.entryDate,
+          formatIndianDate(batch.entryDate),
           batch.batchNumber,
           batch.batchName || `Stock Entry #${batch.batchNumber}`,
-          batch.createdAt,
+          formatIndianTime(batch.createdAt),
           entry.productName,
           entry.brand,
           entry.outletName,
@@ -246,7 +247,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `reports-${selectedDate}.csv`;
+    link.download = `stockflow_report_${selectedDate}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -254,12 +255,30 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
     addToast('CSV exported successfully', 'success');
   };
 
+  const handleCalendarSubmit = async () => {
+    if (!calendarDate) {
+      addToast('Please choose a date', 'error');
+      return;
+    }
+
+    await handleDateChange(calendarDate);
+  };
+
   const outletOptions = [
     { value: '', label: 'All Outlets' },
     ...data.outlets.map((outlet) => ({ value: String(outlet.id), label: outlet.name }))
   ];
 
-  const selectedDateSummary = data.dates.find((group) => group.date === selectedDate) ?? null;
+  const selectedDateSummary = data.dates.find((group) => group.date === selectedDate) ?? (
+    selectedDate && data.batches.length > 0
+      ? {
+          date: selectedDate,
+          batchCount: data.batches.length,
+          itemCount: data.batches.reduce((total, batch) => total + batch.itemCount, 0),
+          totalAmount: data.batches.reduce((total, batch) => total + batch.totalAmount, 0)
+        }
+      : null
+  );
 
   if (summaryLoading) {
     return (
@@ -304,31 +323,52 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
         </div>
       </header>
 
-      <section className="glass-panel p-3 sm:p-2 rounded-2xl w-full overflow-hidden">
-        <div className="flex flex-wrap sm:flex-nowrap items-start sm:items-center gap-2">
-          <div className="w-full sm:w-auto px-2 sm:px-4 py-2 text-slate-400 border-b sm:border-b-0 sm:border-r border-slate-200/50 sm:mr-2 flex items-center gap-2">
+      <section className="glass-panel p-4 rounded-2xl w-full space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex items-center gap-2 text-slate-500">
             <CalendarDays size={20} />
-            <span className="text-xs font-bold uppercase tracking-wider">Date</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Choose Report Date</span>
           </div>
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+            <input
+              type="date"
+              value={calendarDate}
+              onChange={(e) => setCalendarDate(e.target.value)}
+              className="w-full sm:w-auto px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm font-medium transition-all shadow-sm"
+            />
+            <button
+              onClick={handleCalendarSubmit}
+              disabled={detailsLoading || !calendarDate}
+              className="w-full sm:w-auto px-5 py-3 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Load Date
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Recent Dates</div>
           {data.dates.length > 0 ? (
-            data.dates.map((group) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+              {data.dates.map((group) => (
               <button
                 key={group.date}
                 onClick={() => handleDateChange(group.date)}
-                className={`w-full sm:w-auto sm:min-w-[168px] px-4 py-3 rounded-xl text-left text-sm font-bold transition-all border ${
+                className={`w-full px-4 py-3 rounded-xl text-left text-sm font-bold transition-all border ${
                   selectedDate === group.date
                     ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/20'
                     : 'text-slate-600 border-transparent hover:bg-white/50 hover:border-white/50 hover:text-slate-800'
                 }`}
               >
-                <div>{group.date}</div>
+                <div>{formatIndianDate(group.date)}</div>
                 <div className={`mt-1 text-[11px] font-medium ${selectedDate === group.date ? 'text-slate-300' : 'text-slate-400'}`}>
                   {group.batchCount} batches • {group.itemCount} items
                 </div>
               </button>
-            ))
+              ))}
+            </div>
           ) : (
-            <span className="text-sm text-slate-400 px-4 py-2 italic">No entries found.</span>
+            <span className="text-sm text-slate-400 italic">No entries found.</span>
           )}
         </div>
       </section>
@@ -337,7 +377,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
         <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           <div className="glass-panel rounded-2xl p-5">
             <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Selected Date</div>
-            <div className="mt-2 text-xl sm:text-2xl font-semibold text-slate-900 break-words">{selectedDateSummary.date}</div>
+            <div className="mt-2 text-xl sm:text-2xl font-semibold text-slate-900 break-words">{formatIndianDate(selectedDateSummary.date)}</div>
           </div>
           <div className="glass-panel rounded-2xl p-5">
             <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Batches</div>
@@ -419,7 +459,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
                     )}
                   </div>
                   <p className="text-slate-300 text-xs sm:text-sm mt-2 break-words">
-                    Date: {batch.entryDate} • Submitted: {formatDateTime(batch.createdAt)} • {batch.itemCount} items
+                    Date: {formatIndianDate(batch.entryDate)} • Submitted: {formatIndianTime(batch.createdAt)} • {batch.itemCount} items
                   </p>
                 </div>
                 <div className="text-left lg:text-right">
@@ -553,7 +593,9 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
           </div>
           <div>
             <h3 className="text-xl sm:text-2xl font-light text-slate-800">No Data for Selected Date</h3>
-            <p className="text-slate-500 mt-2 text-base sm:text-lg">Choose a date with report batches to inspect or export.</p>
+            <p className="text-slate-500 mt-2 text-base sm:text-lg">
+              {selectedDate ? `No report batches found for ${formatIndianDate(selectedDate)}.` : 'Choose a date with report batches to inspect or export.'}
+            </p>
           </div>
         </div>
       )}
@@ -577,7 +619,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
                   </div>
                   <div className="text-sm">
                     <span className="font-semibold text-slate-700">Date: </span>
-                    <span className="text-slate-600">{batchToDelete.entryDate}</span>
+                    <span className="text-slate-600">{formatIndianDate(batchToDelete.entryDate)}</span>
                   </div>
                   <div className="text-sm">
                     <span className="font-semibold text-slate-700">Items: </span>

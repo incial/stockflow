@@ -216,6 +216,7 @@ public class AdminAnalyticsService {
                         .itemCount(Math.toIntExact(summary.getItemCount()))
                         .totalAmount(summary.getTotalAmount())
                         .build())
+                .limit(12)
                 .toList();
 
         String selectedDate = resolveSelectedDate(dateSummaries, date);
@@ -339,8 +340,7 @@ public class AdminAnalyticsService {
 
         try {
             String normalizedDate = LocalDate.parse(requestedDate, DATE_FORMATTER).format(DATE_FORMATTER);
-            boolean exists = dateSummaries.stream().anyMatch(summary -> summary.getDate().equals(normalizedDate));
-            return exists ? normalizedDate : dateSummaries.get(0).getDate();
+            return normalizedDate;
         } catch (DateTimeParseException exception) {
             return dateSummaries.get(0).getDate();
         }

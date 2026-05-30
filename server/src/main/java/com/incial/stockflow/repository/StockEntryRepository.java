@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -32,9 +33,48 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
         BigDecimal getTotalAmount();
     }
 
+    interface LatestBatchInfo {
+        Long getBatchId();
+        LocalDate getEntryDate();
+        LocalDateTime getCreatedAt();
+        long getItemCount();
+    }
+
     List<StockEntry> findByOutletIdOrderByEntryDateDescCreatedAtDesc(Long outletId, Pageable pageable);
     List<StockEntry> findAllByOrderByEntryDateDescCreatedAtDesc(Pageable pageable);
     List<StockEntry> findByBatchId(Long batchId);
+
+    @Query("""
+    select se
+    from StockEntry se
+    join fetch se.product
+    join fetch se.outlet
+    where se.batchId in :batchIds
+    order by se.createdAt desc, se.batchId desc, se.id asc
+""")
+    List<StockEntry> findByBatchIdInWithProductAndOutlet(Collection<Long> batchIds);
+
+    @Query("""
+    select se
+    from StockEntry se
+    join fetch se.product
+    join fetch se.outlet
+    where se.id = :entryId
+""")
+    StockEntry findByIdWithProductAndOutlet(Long entryId);
+
+    @Query("""
+    select se.batchId as batchId,
+           se.entryDate as entryDate,
+           max(se.createdAt) as createdAt,
+           count(se) as itemCount
+    from StockEntry se
+    where se.outlet.id = :outletId
+      and se.batchId is not null
+    group by se.batchId, se.entryDate
+    order by max(se.createdAt) desc
+""")
+    List<LatestBatchInfo> findLatestBatchInfosByOutletId(Long outletId, Pageable pageable);
 
     @Query("""
     select se

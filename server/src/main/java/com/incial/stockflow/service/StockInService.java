@@ -1,8 +1,10 @@
 package com.incial.stockflow.service;
 
 import com.incial.stockflow.dto.request.BatchUpdateRequest;
+import com.incial.stockflow.dto.request.RefillerStockEntryUpdateRequest;
 import com.incial.stockflow.dto.request.StockInBatchRequest;
 import com.incial.stockflow.dto.request.StockInItemRequest;
+import com.incial.stockflow.dto.response.RefillerReportsResponse;
 import com.incial.stockflow.dto.response.StockEntryResponse;
 import com.incial.stockflow.entity.*;
 import com.incial.stockflow.exception.BusinessException;
@@ -15,8 +17,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,6 +31,7 @@ import java.util.Map;
 public class StockInService {
     private static final int DEFAULT_PAGE_SIZE = 200;
     private static final int MAX_PAGE_SIZE = 500;
+    private static final int MAX_REFILLER_EDITABLE_BATCHES = 5;
 
     private final StockEntryRepository stockEntryRepository;
     private final BatchReferenceRepository batchReferenceRepository;
@@ -251,6 +258,92 @@ public class StockInService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public RefillerReportsResponse getRefillerReports(User currentUser, String date) {
+        Outlet outlet = requireRefillerOutlet(currentUser);
+        List<StockEntryRepository.LatestBatchInfo> latestBatchInfos = stockEntryRepository.findLatestBatchInfosByOutletId(
+                outlet.getId(),
+                PageRequest.of(0, MAX_REFILLER_EDITABLE_BATCHES)
+        );
+
+        Map<LocalDate, RefillerDateAccumulator> dateAccumulators = new LinkedHashMap<>();
+        for (StockEntryRepository.LatestBatchInfo batchInfo : latestBatchInfos) {
+            RefillerDateAccumulator accumulator = dateAccumulators.computeIfAbsent(
+                    batchInfo.getEntryDate(),
+                    ignored -> new RefillerDateAccumulator()
+            );
+            accumulator.batchCount += 1;
+            accumulator.itemCount += Math.toIntExact(batchInfo.getItemCount());
+        }
+
+        List<RefillerReportsResponse.ReportDateSummaryResponse> dateSummaries = dateAccumulators.entrySet().stream()
+                .sorted(Map.Entry.<LocalDate, RefillerDateAccumulator>comparingByKey().reversed())
+                .map(entry -> RefillerReportsResponse.ReportDateSummaryResponse.builder()
+                        .date(entry.getKey().toString())
+                        .batchCount(entry.getValue().batchCount)
+                        .itemCount(entry.getValue().itemCount)
+                .build())
+                .toList();
+
+        String selectedDate = resolveRefillerSelectedDate(dateSummaries, date);
+        LocalDate parsedSelectedDate = parseRefillerSelectedDate(selectedDate);
+        List<Long> batchIdsForSelectedDate = latestBatchInfos.stream()
+                .filter(batchInfo -> parsedSelectedDate != null && batchInfo.getEntryDate().equals(parsedSelectedDate))
+                .map(StockEntryRepository.LatestBatchInfo::getBatchId)
+                .toList();
+
+        List<RefillerReportsResponse.RefillerBatchResponse> batches = batchIdsForSelectedDate.isEmpty()
+                ? List.of()
+                : toRefillerBatchResponses(stockEntryRepository.findByBatchIdInWithProductAndOutlet(batchIdsForSelectedDate));
+
+        return RefillerReportsResponse.builder()
+                .selectedDate(selectedDate)
+                .dates(dateSummaries)
+                .batches(batches)
+                .build();
+    }
+
+    @Transactional
+    public void updateEntry(RefillerStockEntryUpdateRequest request, User currentUser) {
+        Outlet outlet = requireRefillerOutlet(currentUser);
+        StockEntry entry = stockEntryRepository.findByIdWithProductAndOutlet(request.getEntryId());
+
+        if (entry == null) {
+            throw new BusinessException("BIZ_005", "No stock entry found with ID: " + request.getEntryId());
+        }
+
+        if (!entry.getOutlet().getId().equals(outlet.getId())) {
+            throw new ForbiddenException("You can only edit entries from your assigned outlet");
+        }
+
+        List<Long> editableBatchIds = stockEntryRepository.findLatestBatchInfosByOutletId(
+                outlet.getId(),
+                PageRequest.of(0, MAX_REFILLER_EDITABLE_BATCHES)
+        ).stream().map(StockEntryRepository.LatestBatchInfo::getBatchId).toList();
+
+        if (entry.getBatchId() == null || !editableBatchIds.contains(entry.getBatchId())) {
+            throw new ForbiddenException("You can only edit entries from your latest five batches");
+        }
+
+        int previousQuantity = entry.getQuantity();
+        BigDecimal previousAmount = entry.getAmount();
+
+        entry.setQuantity(request.getQuantity());
+        entry.setAmount(request.getAmount());
+        stockEntryRepository.save(entry);
+
+        auditService.logAction(
+                currentUser,
+                "UPDATE_STOCK_IN_ENTRY",
+                "StockEntry",
+                entry.getId(),
+                "Updated stock entry for product '" + entry.getProduct().getName()
+                        + "' in batch " + entry.getBatchId()
+                        + ": quantity " + previousQuantity + " -> " + request.getQuantity()
+                        + ", amount " + previousAmount + " -> " + request.getAmount()
+        );
+    }
+
     // ----------------------------------------------------------------
     // Entity → DTO mapping (single responsibility)
     // ----------------------------------------------------------------
@@ -272,5 +365,94 @@ public class StockInService {
 
     private Long reserveBatchId() {
         return batchReferenceRepository.save(BatchReference.builder().build()).getId();
+    }
+
+    private Outlet requireRefillerOutlet(User currentUser) {
+        if (currentUser.getRole() != UserRole.REFILLER) {
+            throw new ForbiddenException("Only refillers can access this resource");
+        }
+
+        if (currentUser.getOutlet() == null) {
+            throw new ForbiddenException("User has no outlet assigned");
+        }
+
+        return currentUser.getOutlet();
+    }
+
+    private String resolveRefillerSelectedDate(
+            List<RefillerReportsResponse.ReportDateSummaryResponse> dateSummaries,
+            String requestedDate
+    ) {
+        if (dateSummaries.isEmpty()) {
+            return requestedDate != null && !requestedDate.isBlank() ? requestedDate : null;
+        }
+
+        if (requestedDate == null || requestedDate.isBlank()) {
+            return dateSummaries.get(0).getDate();
+        }
+
+        return requestedDate;
+    }
+
+    private LocalDate parseRefillerSelectedDate(String selectedDate) {
+        if (selectedDate == null || selectedDate.isBlank()) {
+            return null;
+        }
+
+        try {
+            return LocalDate.parse(selectedDate);
+        } catch (DateTimeParseException exception) {
+            return null;
+        }
+    }
+
+    private List<RefillerReportsResponse.RefillerBatchResponse> toRefillerBatchResponses(List<StockEntry> entries) {
+        Map<Long, List<StockEntry>> entriesByBatchId = new LinkedHashMap<>();
+        for (StockEntry entry : entries) {
+            if (entry.getBatchId() == null) {
+                continue;
+            }
+            entriesByBatchId.computeIfAbsent(entry.getBatchId(), ignored -> new ArrayList<>()).add(entry);
+        }
+
+        List<RefillerReportsResponse.RefillerBatchResponse> batches = entriesByBatchId.entrySet().stream()
+                .map(entry -> {
+                    List<StockEntry> batchEntries = entry.getValue();
+                    StockEntry firstEntry = batchEntries.get(0);
+
+                    List<RefillerReportsResponse.RefillerBatchEntryResponse> items = batchEntries.stream()
+                            .map(batchEntry -> RefillerReportsResponse.RefillerBatchEntryResponse.builder()
+                                    .id(batchEntry.getId())
+                                    .productId(batchEntry.getProduct().getId())
+                                    .productName(batchEntry.getProduct().getName())
+                                    .brand(batchEntry.getProduct().getBrand())
+                                    .quantity(batchEntry.getQuantity())
+                                    .amount(batchEntry.getAmount())
+                                    .build())
+                            .toList();
+
+                    return RefillerReportsResponse.RefillerBatchResponse.builder()
+                            .batchId(entry.getKey())
+                            .entryDate(firstEntry.getEntryDate().toString())
+                            .createdAt(firstEntry.getCreatedAt().toString())
+                            .batchNumber(0)
+                            .batchName(firstEntry.getBatchName())
+                            .itemCount(items.size())
+                            .entries(items)
+                            .build();
+                })
+                .sorted(Comparator.comparing(RefillerReportsResponse.RefillerBatchResponse::getCreatedAt).reversed())
+                .toList();
+
+        for (int index = 0; index < batches.size(); index++) {
+            batches.get(index).setBatchNumber(index + 1);
+        }
+
+        return batches;
+    }
+
+    private static class RefillerDateAccumulator {
+        private int batchCount;
+        private int itemCount;
     }
 }

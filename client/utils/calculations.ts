@@ -155,6 +155,78 @@ export const formatDateTime = (dateString: string): string => {
   }
 };
 
+export const formatIndianDate = (dateString: string): string => {
+  if (!dateString) return '-';
+
+  try {
+    const parts = dateString.includes('T')
+      ? new Date(dateString).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          timeZone: 'Asia/Kolkata'
+        }).split('/')
+      : dateString.split('-').reverse();
+
+    return parts.join('-');
+  } catch (e) {
+    return dateString;
+  }
+};
+
+export const formatIndianDateTime = (dateString: string): string => {
+  if (!dateString) return '-';
+
+  try {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Kolkata'
+    });
+
+    return formatter.format(new Date(dateString)).replace(',', '');
+  } catch (e) {
+    return dateString;
+  }
+};
+
+export const formatIndianTime = (dateString: string): string => {
+  if (!dateString) return '-';
+
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Kolkata'
+    }).format(new Date(dateString));
+  } catch (e) {
+    return dateString;
+  }
+};
+
+export const formatIndianReadableDate = (dateString: string): string => {
+  if (!dateString) return '-';
+
+  try {
+    const formatted = new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'Asia/Kolkata'
+    }).format(new Date(dateString));
+
+    const [day, month, year] = formatted.split(' ');
+    return `${day} ${month.toLowerCase()} ${year}`;
+  } catch (e) {
+    return dateString;
+  }
+};
+
 export const formatFullDate = (date?: Date): string => {
   const d = date || new Date();
   return d.toLocaleDateString('en-IN', {

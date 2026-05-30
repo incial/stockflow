@@ -1,11 +1,13 @@
 package com.incial.stockflow.service;
 
 
+import com.incial.stockflow.dto.response.AuditLogPageResponse;
 import com.incial.stockflow.entity.AuditLog;
 import com.incial.stockflow.entity.User;
 import com.incial.stockflow.repository.AuditLogRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -15,15 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class AuditService {
     private static final int MAX_PAGE_SIZE = 200;
+    private static final int MAX_AUDIT_LOGS = 100;
 
     private final AuditLogRepository auditLogRepository;
-    private static final int MAX_AUDIT_LOGS = 50;
 
     @Transactional
     public void logAction(User user, String action, String entityType, Long entityId, String details) {
@@ -34,6 +34,7 @@ public class AuditService {
                 .userName(user.getName())
                 .userEmail(user.getEmail())
                 .userRole(user.getRole())
+                .userOutletName(user.getOutlet() != null ? user.getOutlet().getName() : null)
                 .action(action)
                 .entityType(entityType)
                 .entityId(entityId)
@@ -56,13 +57,23 @@ public class AuditService {
         }
     }
 
-    public List<AuditLog> getAllAuditLogs(int page, int size) {
+    public AuditLogPageResponse getAllAuditLogs(int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         Pageable pageable = PageRequest.of(
-                Math.max(page, 0),
-                Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
+                safePage,
+                safeSize,
                 Sort.by(Sort.Direction.DESC, "timestamp")
         );
-        return auditLogRepository.findAll(pageable).getContent();
+        Page<AuditLog> auditLogPage = auditLogRepository.findAll(pageable);
+
+        return AuditLogPageResponse.builder()
+                .logs(auditLogPage.getContent())
+                .page(safePage)
+                .size(safeSize)
+                .totalElements(auditLogPage.getTotalElements())
+                .totalPages(auditLogPage.getTotalPages())
+                .build();
     }
 
     private HttpServletRequest getCurrentHttpRequest() {

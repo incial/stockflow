@@ -5,6 +5,7 @@ import { User, UserRole, StockEntry, StockOutEntry, Product } from './types';
 import Login from './views/Login';
 import AdminDashboard from './views/AdminDashboard';
 import RefillerDashboard from './views/RefillerDashboard';
+import RefillerReports from './views/RefillerReports';
 import StockOut from './views/StockOut';
 import Reports from './views/Reports';
 import InventoryReport from './views/InventoryReport';
@@ -85,6 +86,7 @@ const AppRoutes: React.FC<{
                 />
               }
             />
+            <Route path="/reports" element={<RefillerReports />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}

@@ -71,6 +71,7 @@ export interface AuditLog {
   userName: string;
   userEmail: string;
   userRole: UserRole;
+  userOutletName?: string | null;
   action: string; // e.g., "CREATE", "UPDATE", "LOGIN"
   entityType: string; // e.g., "Product", "StockEntry"
   entityId?: number | null;
@@ -78,6 +79,14 @@ export interface AuditLog {
   ipAddress: string;
   userAgent: string;
   timestamp: string;
+}
+
+export interface AuditLogPageData {
+  logs: AuditLog[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
 }
 
 export interface DashboardProfitByOutlet {
@@ -176,4 +185,35 @@ export interface AdminReportsData {
   dates: ReportDateSummary[];
   selectedDate: string | null;
   batches: ReportBatch[];
+}
+
+export interface RefillerReportDateSummary {
+  date: string;
+  batchCount: number;
+  itemCount: number;
+}
+
+export interface RefillerBatchEntry {
+  id: number;
+  productId: number;
+  productName: string;
+  brand: string;
+  quantity: number;
+  amount: number;
+}
+
+export interface RefillerBatch {
+  batchId: number;
+  entryDate: string;
+  createdAt: string;
+  batchNumber: number;
+  batchName?: string;
+  itemCount: number;
+  entries: RefillerBatchEntry[];
+}
+
+export interface RefillerReportsData {
+  selectedDate: string | null;
+  dates: RefillerReportDateSummary[];
+  batches: RefillerBatch[];
 }

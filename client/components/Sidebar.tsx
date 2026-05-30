@@ -36,6 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     : [
         { path: '/', label: 'Stock In (Entry)', icon: <PackageSearch size={20} /> },
         { path: '/stock-out', label: 'Stock Out', icon: <PackageMinus size={20} /> },
+        { path: '/reports', label: 'My Recent Batches', icon: <FileText size={20} /> },
       ];
 
   const sidebarWidthClass = isSidebarOpen ? 'w-72' : 'w-20';

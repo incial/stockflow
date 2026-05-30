@@ -34,6 +34,9 @@ public class AuditLog {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole userRole;
+
+    @Column
+    private String userOutletName;
     
     @Column(nullable = false)
     private String action;
