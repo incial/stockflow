@@ -23,6 +23,14 @@ const AuditLogs: React.FC = () => {
   }, [page]);
 
   const fetchLogs = async () => {
+    if (!api.session.hasAdminSession()) {
+      setLogs([]);
+      setTotalElements(0);
+      setTotalPages(0);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const data = await api.audit.getAll(page, PAGE_SIZE);
@@ -37,6 +45,9 @@ const AuditLogs: React.FC = () => {
       setTotalElements(data.totalElements);
       setTotalPages(data.totalPages);
     } catch (error: any) {
+      setLogs([]);
+      setTotalElements(0);
+      setTotalPages(0);
       addToast(error.message || 'Failed to load audit logs', 'error');
     } finally {
       setLoading(false);

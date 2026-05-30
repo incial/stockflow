@@ -15,13 +15,28 @@ const AdminDashboard: React.FC = () => {
   const [dashboard, setDashboard] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
+  const emptyDashboard: AdminDashboardData = {
+    totalRevenue: 0,
+    totalProfit: 0,
+    avgMargin: 0,
+    totalItems: 0,
+    profitByOutlet: [],
+    trendData: []
+  };
 
   useEffect(() => {
     const loadDashboard = async () => {
+      if (!api.session.hasAdminSession()) {
+        setDashboard(emptyDashboard);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setDashboard(await api.admin.getDashboard());
       } catch (error: any) {
+        setDashboard(emptyDashboard);
         addToast(error.message || 'Failed to load dashboard', 'error');
       } finally {
         setLoading(false);
@@ -40,14 +55,7 @@ const AdminDashboard: React.FC = () => {
     );
   }
 
-  const stats = dashboard ?? {
-    totalRevenue: 0,
-    totalProfit: 0,
-    avgMargin: 0,
-    totalItems: 0,
-    profitByOutlet: [],
-    trendData: []
-  };
+  const stats = dashboard ?? emptyDashboard;
 
   return (
     <div className="space-y-8 pb-10">

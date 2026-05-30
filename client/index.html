@@ -1,19 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StockFlow by Incial</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="icon" type="image/png" href="logo.png"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="icon" type="image/png" href="%PUBLIC_URL%/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/favicon.svg" />
+    <link rel="shortcut icon" href="%PUBLIC_URL%/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Stockflow" />
+    <link rel="manifest" href="%PUBLIC_URL%/site.webmanifest" />
+
     <style>
-        body { 
-            font-family: 'Inter', sans-serif; 
+        body {
+            font-family: 'Inter', sans-serif;
             background-color: #f8fafc;
             overflow-x: hidden;
         }
-        
+
         .glass-canvas {
             position: fixed;
             top: 0;
@@ -21,25 +29,25 @@
             width: 100vw;
             height: 100vh;
             z-index: -1;
-            background: 
-                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
-                radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
-                radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+            background:
+                radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 1) 0, transparent 50%),
+                radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 1) 0, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 1) 0, transparent 50%);
             background-size: 200% 200%;
             animation: gradient-animation 15s ease infinite;
         }
-        
+
         /* Light mode mesh for dashboard */
         .mesh-light {
             background-color: #f3f4f6;
-            background-image: 
-                radial-gradient(at 40% 20%, hsla(28,100%,74%,1) 0px, transparent 50%),
-                radial-gradient(at 80% 0%, hsla(189,100%,56%,1) 0px, transparent 50%),
-                radial-gradient(at 0% 50%, hsla(355,100%,93%,1) 0px, transparent 50%),
-                radial-gradient(at 80% 50%, hsla(340,100%,76%,1) 0px, transparent 50%),
-                radial-gradient(at 0% 100%, hsla(22,100%,77%,1) 0px, transparent 50%),
-                radial-gradient(at 80% 100%, hsla(242,100%,70%,1) 0px, transparent 50%),
-                radial-gradient(at 0% 0%, hsla(343,100%,76%,1) 0px, transparent 50%);
+            background-image:
+                radial-gradient(at 40% 20%, hsla(28, 100%, 74%, 1) 0px, transparent 50%),
+                radial-gradient(at 80% 0%, hsla(189, 100%, 56%, 1) 0px, transparent 50%),
+                radial-gradient(at 0% 50%, hsla(355, 100%, 93%, 1) 0px, transparent 50%),
+                radial-gradient(at 80% 50%, hsla(340, 100%, 76%, 1) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, hsla(22, 100%, 77%, 1) 0px, transparent 50%),
+                radial-gradient(at 80% 100%, hsla(242, 100%, 70%, 1) 0px, transparent 50%),
+                radial-gradient(at 0% 0%, hsla(343, 100%, 76%, 1) 0px, transparent 50%);
             filter: blur(80px);
             opacity: 0.15;
             position: fixed;
@@ -56,11 +64,12 @@
         }
 
         .glass-panel-dark {
-             background: rgba(5, 5, 10, 0.92); /* Darker, nearly opaque background */
-             backdrop-filter: blur(24px);
-             -webkit-backdrop-filter: blur(24px);
-             border: 1px solid rgba(255, 255, 255, 0.08);
-             box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            background: rgba(5, 5, 10, 0.92);
+            /* Darker, nearly opaque background */
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
         }
 
         /* Custom Scrollbar */
@@ -68,28 +77,41 @@
             width: 6px;
             height: 6px;
         }
+
         ::-webkit-scrollbar-track {
-            background: transparent; 
+            background: transparent;
         }
+
         ::-webkit-scrollbar-thumb {
-            background: rgba(156, 163, 175, 0.5); 
+            background: rgba(156, 163, 175, 0.5);
             border-radius: 10px;
         }
+
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(107, 114, 128, 0.8); 
+            background: rgba(107, 114, 128, 0.8);
         }
 
         @keyframes gradient-animation {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
         }
     </style>
 
 </head>
+
 <body class="text-slate-900 antialiased selection:bg-indigo-500/20 selection:text-indigo-900">
     <div class="mesh-light"></div>
     <div id="root"></div>
     <script type="module" src="/main.tsx"></script>
 </body>
+
 </html>

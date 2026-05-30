@@ -1,13 +1,12 @@
 import {
-  AdminDashboardData,AdminInventoryData,AdminReportsData,AuditLog,AuditLogPageData,Outlet,Product,RefillerReportsData,StockEntry,StockOutEntry,StockOutReason,User
+  AdminDashboardData,AdminInventoryData,AdminReportsData,AuditLog,AuditLogPageData,Outlet,Product,RefillerReportsData,StockEntry,StockOutEntry,StockOutReason,User,UserRole
 } from '../types';
 
 
 
-const API_BASE_URL = import.meta.env.API_BASE_URL || '/api/v1';
+const API_BASE_URL = 'https://api.stockflow.incial.in/api/v1';
 
 //const API_BASE_URL = 'http://localhost:8080/api/v1';
-
 
 
 interface LoginResponse {
@@ -59,6 +58,25 @@ const getHeaders = (): HeadersInit => {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
+};
+
+const getStoredUser = (): User | null => {
+  const rawUser = localStorage.getItem('sm_user');
+  if (!rawUser) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawUser) as User;
+  } catch {
+    return null;
+  }
+};
+
+const hasAdminSession = (): boolean => {
+  const token = localStorage.getItem('token');
+  const user = getStoredUser();
+  return Boolean(token) && user?.role === UserRole.ADMIN;
 };
 
 /**
@@ -163,6 +181,9 @@ const fetchAllPages = async <T,>(
 // ============================================
 
 export const api = {
+  session: {
+    hasAdminSession,
+  },
   /**
    * Authentication APIs
    */

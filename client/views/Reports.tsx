@@ -88,6 +88,14 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
   const outletId = filterOutlet ? Number(filterOutlet) : undefined;
 
   const loadReportDetails = async (date: string, currentOutlets?: AdminReportsData['outlets'], currentDates?: AdminReportsData['dates']) => {
+    if (!api.session.hasAdminSession()) {
+      setData(emptyReportsData);
+      setSelectedDate(null);
+      setCalendarDate('');
+      setDetailsLoading(false);
+      return;
+    }
+
     try {
       setDetailsLoading(true);
       const response = await api.admin.getReports(outletId, date);
@@ -100,6 +108,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
       setSelectedDate(response.selectedDate ?? date);
       setCalendarDate(response.selectedDate ?? date);
     } catch (error: any) {
+      setData((current) => ({ ...current, batches: [] }));
       addToast(error.message || 'Failed to load report details', 'error');
     } finally {
       setDetailsLoading(false);
@@ -107,6 +116,14 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
   };
 
   const loadReportSummary = async (preferredDate?: string | null) => {
+    if (!api.session.hasAdminSession()) {
+      setData(emptyReportsData);
+      setSelectedDate(null);
+      setCalendarDate('');
+      setSummaryLoading(false);
+      return;
+    }
+
     try {
       setSummaryLoading(true);
       const response = await api.admin.getReports(outletId);
@@ -125,6 +142,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
         await loadReportDetails(nextDate, response.outlets, response.dates);
       }
     } catch (error: any) {
+      setData(emptyReportsData);
       addToast(error.message || 'Failed to load reports', 'error');
     } finally {
       setSummaryLoading(false);

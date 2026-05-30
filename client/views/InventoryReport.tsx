@@ -34,6 +34,12 @@ const InventoryReport: React.FC = () => {
 
   useEffect(() => {
     const loadInventory = async () => {
+      if (!api.session.hasAdminSession()) {
+        setData(emptyInventoryData);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setData(await api.admin.getInventory(
@@ -44,6 +50,7 @@ const InventoryReport: React.FC = () => {
           appliedSearch || undefined
         ));
       } catch (error: any) {
+        setData(emptyInventoryData);
         addToast(error.message || 'Failed to load inventory', 'error');
       } finally {
         setLoading(false);
