@@ -67,6 +67,16 @@ google:
 jwt:
   secret: ${JWT_SECRET}
 
+security:
+  rate-limit:
+    enabled: true
+    auth:
+      capacity: 5
+      window-seconds: 300
+    api:
+      capacity: 120
+      window-seconds: 60
+
 # ===========================
 # SERVER
 # ===========================
