@@ -40,6 +40,33 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
         long getItemCount();
     }
 
+    interface DashboardTotals {
+        BigDecimal getTotalRevenue();
+        BigDecimal getTotalProfit();
+        long getTotalItems();
+    }
+
+    interface ProfitByOutletTotal {
+        String getOutletName();
+        BigDecimal getProfit();
+    }
+
+    interface RevenueTrendPoint {
+        LocalDate getEntryDate();
+        BigDecimal getRevenue();
+        BigDecimal getProfit();
+    }
+
+    interface InventoryLevelView {
+        Long getProductId();
+        String getProductName();
+        String getBrand();
+        Long getOutletId();
+        String getOutletName();
+        Integer getTotalIn();
+        Integer getTotalOut();
+    }
+
     List<StockEntry> findByOutletIdOrderByEntryDateDescCreatedAtDesc(Long outletId, Pageable pageable);
     List<StockEntry> findAllByOrderByEntryDateDescCreatedAtDesc(Pageable pageable);
     List<StockEntry> findByBatchId(Long batchId);
@@ -101,23 +128,98 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
     List<ReportDateSummary> findReportDateSummaries(Long outletId);
 
     @Query("""
-    select se
+    select coalesce(sum(se.product.mrp * se.quantity), 0) as totalRevenue,
+           coalesce(sum((se.product.mrp * se.quantity) - se.amount), 0) as totalProfit,
+           coalesce(sum(se.quantity), 0) as totalItems
     from StockEntry se
-    join fetch se.product
-    join fetch se.outlet
-    order by se.entryDate desc, se.createdAt desc
 """)
-    List<StockEntry> findAllWithProductAndOutletOrderByEntryDateDescCreatedAtDesc();
+    DashboardTotals findDashboardTotals();
 
     @Query("""
-    select se
+    select se.outlet.name as outletName,
+           coalesce(sum((se.product.mrp * se.quantity) - se.amount), 0) as profit
     from StockEntry se
-    join fetch se.product
-    join fetch se.outlet
-    where se.outlet.id = :outletId
-    order by se.entryDate desc, se.createdAt desc
+    group by se.outlet.name
+    order by se.outlet.name asc
 """)
-    List<StockEntry> findByOutletIdWithProductAndOutletOrderByEntryDateDescCreatedAtDesc(Long outletId);
+    List<ProfitByOutletTotal> findProfitByOutletTotals();
+
+    @Query("""
+    select se.entryDate as entryDate,
+           coalesce(sum(se.product.mrp * se.quantity), 0) as revenue,
+           coalesce(sum((se.product.mrp * se.quantity) - se.amount), 0) as profit
+    from StockEntry se
+    group by se.entryDate
+    order by se.entryDate asc
+""")
+    List<RevenueTrendPoint> findRevenueTrendPoints();
+
+    @Query(
+            value = """
+            with stock_in_totals as (
+                select se.outlet_id, se.product_id, sum(se.quantity) as total_in
+                from stock_entries se
+                where (:outletId is null or se.outlet_id = :outletId)
+                group by se.outlet_id, se.product_id
+            ),
+            stock_out_totals as (
+                select so.outlet_id, so.product_id, sum(so.quantity) as total_out
+                from stock_out_entries so
+                where (:outletId is null or so.outlet_id = :outletId)
+                group by so.outlet_id, so.product_id
+            )
+            select
+                p.id as productId,
+                p.name as productName,
+                p.brand as brand,
+                o.id as outletId,
+                o.name as outletName,
+                coalesce(si.total_in, 0) as totalIn,
+                coalesce(so.total_out, 0) as totalOut
+            from stock_in_totals si
+            full outer join stock_out_totals so
+                on so.outlet_id = si.outlet_id
+               and so.product_id = si.product_id
+            join outlets o on o.id = coalesce(si.outlet_id, so.outlet_id)
+            join products p on p.id = coalesce(si.product_id, so.product_id)
+            where (
+                :search is null or :search = ''
+                or lower(p.name) like concat('%', :search, '%')
+                or lower(p.brand) like concat('%', :search, '%')
+                or lower(o.name) like concat('%', :search, '%')
+            )
+            order by o.name asc, p.brand asc, p.name asc
+            """,
+            countQuery = """
+            with stock_in_totals as (
+                select se.outlet_id, se.product_id, sum(se.quantity) as total_in
+                from stock_entries se
+                where (:outletId is null or se.outlet_id = :outletId)
+                group by se.outlet_id, se.product_id
+            ),
+            stock_out_totals as (
+                select so.outlet_id, so.product_id, sum(so.quantity) as total_out
+                from stock_out_entries so
+                where (:outletId is null or so.outlet_id = :outletId)
+                group by so.outlet_id, so.product_id
+            )
+            select count(*)
+            from stock_in_totals si
+            full outer join stock_out_totals so
+                on so.outlet_id = si.outlet_id
+               and so.product_id = si.product_id
+            join outlets o on o.id = coalesce(si.outlet_id, so.outlet_id)
+            join products p on p.id = coalesce(si.product_id, so.product_id)
+            where (
+                :search is null or :search = ''
+                or lower(p.name) like concat('%', :search, '%')
+                or lower(p.brand) like concat('%', :search, '%')
+                or lower(o.name) like concat('%', :search, '%')
+            )
+            """,
+            nativeQuery = true
+    )
+    org.springframework.data.domain.Page<InventoryLevelView> findInventoryLevels(Long outletId, String search, Pageable pageable);
 
     @Query("""
     select count(se) as entryCount,

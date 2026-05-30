@@ -27,6 +27,18 @@ import java.time.LocalDateTime;
                 @Index(
                         name = "idx_stock_entry_batch_id",
                         columnList = "batch_id"
+                ),
+                @Index(
+                        name = "idx_stock_entry_outlet_product",
+                        columnList = "outlet_id, product_id"
+                ),
+                @Index(
+                        name = "idx_stock_entry_outlet_created_at",
+                        columnList = "outlet_id, created_at"
+                ),
+                @Index(
+                        name = "idx_stock_entry_outlet_batch_created_at",
+                        columnList = "outlet_id, batch_id, created_at"
                 )
         }
 )

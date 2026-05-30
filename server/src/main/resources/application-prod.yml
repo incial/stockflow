@@ -13,11 +13,11 @@ spring:
 
     hikari:
       pool-name: StockflowHikariPool
-      maximum-pool-size: 10
-      minimum-idle: 2
-      connection-timeout: 20000
-      idle-timeout: 60000
-      max-lifetime: 300000
+      maximum-pool-size: 4
+      minimum-idle: 1
+      connection-timeout: 10000
+      idle-timeout: 30000
+      max-lifetime: 240000
       validation-timeout: 5000
       auto-commit: false
 
@@ -83,10 +83,12 @@ server:
       text/css,
       application/javascript
   tomcat:
-    accept-count: 100
+    accept-count: 10
+    max-connections: 12
+    keep-alive-timeout: 15000
     threads:
-      max: 40
-      min-spare: 5
+      max: 6
+      min-spare: 1
 
 # ===========================
 # LOGGING (PROD-SAFE)
@@ -123,5 +125,5 @@ management:
 # ===========================
 env:
   printer:
-    enabled: true
+    enabled: false
     endpoint-enabled: false

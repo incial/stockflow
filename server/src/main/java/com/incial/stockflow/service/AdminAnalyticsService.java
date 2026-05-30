@@ -5,9 +5,7 @@ import com.incial.stockflow.dto.response.AdminInventoryResponse;
 import com.incial.stockflow.dto.response.AdminReportsResponse;
 import com.incial.stockflow.dto.response.OutletSummaryResponse;
 import com.incial.stockflow.entity.Outlet;
-import com.incial.stockflow.entity.Product;
 import com.incial.stockflow.entity.StockEntry;
-import com.incial.stockflow.entity.StockOutEntry;
 import com.incial.stockflow.entity.User;
 import com.incial.stockflow.entity.UserRole;
 import com.incial.stockflow.exception.ForbiddenException;
@@ -15,6 +13,8 @@ import com.incial.stockflow.repository.OutletRepository;
 import com.incial.stockflow.repository.StockEntryRepository;
 import com.incial.stockflow.repository.StockOutEntryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -45,43 +44,28 @@ public class AdminAnalyticsService {
     public AdminDashboardResponse getDashboard(User currentUser) {
         requireAdmin(currentUser);
 
-        List<StockEntry> entries = stockEntryRepository.findAllWithProductAndOutletOrderByEntryDateDescCreatedAtDesc();
-        BigDecimal totalRevenue = BigDecimal.ZERO;
-        BigDecimal totalProfit = BigDecimal.ZERO;
-        long totalItems = 0L;
-        Map<String, BigDecimal> profitByOutlet = new LinkedHashMap<>();
-        Map<String, TrendAccumulator> trendMap = new LinkedHashMap<>();
+        StockEntryRepository.DashboardTotals totals = stockEntryRepository.findDashboardTotals();
 
-        for (StockEntry entry : entries) {
-            BigDecimal revenue = entry.getProduct().getMrp().multiply(BigDecimal.valueOf(entry.getQuantity()));
-            BigDecimal profit = revenue.subtract(entry.getAmount());
-
-            totalRevenue = totalRevenue.add(revenue);
-            totalProfit = totalProfit.add(profit);
-            totalItems += entry.getQuantity();
-            profitByOutlet.merge(entry.getOutlet().getName(), profit, BigDecimal::add);
-
-            String date = entry.getEntryDate().format(DATE_FORMATTER);
-            TrendAccumulator accumulator = trendMap.computeIfAbsent(date, ignored -> new TrendAccumulator());
-            accumulator.revenue = accumulator.revenue.add(revenue);
-            accumulator.profit = accumulator.profit.add(profit);
-        }
-
-        List<AdminDashboardResponse.ProfitByOutletResponse> outletResponses = profitByOutlet.entrySet().stream()
+        List<AdminDashboardResponse.ProfitByOutletResponse> outletResponses = stockEntryRepository.findProfitByOutletTotals()
+                .stream()
                 .map(entry -> AdminDashboardResponse.ProfitByOutletResponse.builder()
-                        .name(entry.getKey())
-                        .profit(entry.getValue())
+                        .name(entry.getOutletName())
+                        .profit(defaultAmount(entry.getProfit()))
                         .build())
                 .toList();
 
-        List<AdminDashboardResponse.RevenueTrendPointResponse> trendResponses = trendMap.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
+        List<AdminDashboardResponse.RevenueTrendPointResponse> trendResponses = stockEntryRepository.findRevenueTrendPoints()
+                .stream()
                 .map(entry -> AdminDashboardResponse.RevenueTrendPointResponse.builder()
-                        .date(entry.getKey())
-                        .revenue(entry.getValue().revenue)
-                        .profit(entry.getValue().profit)
+                        .date(entry.getEntryDate().format(DATE_FORMATTER))
+                        .revenue(defaultAmount(entry.getRevenue()))
+                        .profit(defaultAmount(entry.getProfit()))
                         .build())
                 .toList();
+
+        BigDecimal totalRevenue = totals != null ? defaultAmount(totals.getTotalRevenue()) : BigDecimal.ZERO;
+        BigDecimal totalProfit = totals != null ? defaultAmount(totals.getTotalProfit()) : BigDecimal.ZERO;
+        long totalItems = totals != null ? totals.getTotalItems() : 0L;
 
         double avgMargin = BigDecimal.ZERO.compareTo(totalRevenue) == 0
                 ? 0.0
@@ -111,92 +95,68 @@ public class AdminAnalyticsService {
         requireAdmin(currentUser);
 
         String normalizedTab = "history".equalsIgnoreCase(tab) ? "history" : "levels";
-        String normalizedSearch = search != null ? search.trim().toLowerCase(Locale.ROOT) : "";
+        String normalizedSearch = normalizeSearch(search);
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), MAX_INVENTORY_PAGE_SIZE);
+        PageRequest pageRequest = PageRequest.of(safePage, safeSize);
 
-        List<StockEntry> stockEntries = outletId != null
-                ? stockEntryRepository.findByOutletIdWithProductAndOutletOrderByEntryDateDescCreatedAtDesc(outletId)
-                : stockEntryRepository.findAllWithProductAndOutletOrderByEntryDateDescCreatedAtDesc();
-        List<StockOutEntry> stockOutEntries = outletId != null
-                ? stockOutEntryRepository.findByOutletIdWithRelationsOrderByDateDescCreatedAtDesc(outletId)
-                : stockOutEntryRepository.findAllWithRelationsOrderByDateDescCreatedAtDesc();
+        List<AdminInventoryResponse.InventoryLevelResponse> pagedInventoryLevels = List.of();
+        List<AdminInventoryResponse.InventoryMovementResponse> pagedHistoryLog = List.of();
+        long totalElements;
+        int totalPages;
 
-        Map<String, InventoryAccumulator> inventoryMap = new LinkedHashMap<>();
-        for (StockEntry entry : stockEntries) {
-            String key = inventoryKey(entry.getOutlet().getId(), entry.getProduct().getId());
-            InventoryAccumulator accumulator = inventoryMap.computeIfAbsent(
-                    key,
-                    ignored -> new InventoryAccumulator(entry.getOutlet(), entry.getProduct())
-            );
-            accumulator.totalIn += entry.getQuantity();
-            accumulator.available += entry.getQuantity();
+        if ("history".equals(normalizedTab)) {
+            Page<StockOutEntryRepository.InventoryMovementView> historyPage =
+                    stockOutEntryRepository.findInventoryHistory(outletId, normalizedSearch, pageRequest);
+
+            pagedHistoryLog = historyPage.stream()
+                    .map(entry -> AdminInventoryResponse.InventoryMovementResponse.builder()
+                            .id(entry.getId())
+                            .date(entry.getDate().format(DATE_FORMATTER))
+                            .outletId(entry.getOutletId())
+                            .outletName(entry.getOutletName())
+                            .productId(entry.getProductId())
+                            .productName(entry.getProductName())
+                            .brand(entry.getBrand())
+                            .quantity(entry.getQuantity())
+                            .reason(entry.getReason())
+                            .userName(entry.getUserName())
+                            .createdAt(entry.getCreatedAt().format(DATE_TIME_FORMATTER))
+                            .build())
+                    .toList();
+
+            totalElements = historyPage.getTotalElements();
+            totalPages = historyPage.getTotalPages();
+        } else {
+            Page<StockEntryRepository.InventoryLevelView> inventoryPage =
+                    stockEntryRepository.findInventoryLevels(outletId, normalizedSearch, pageRequest);
+
+            pagedInventoryLevels = inventoryPage.stream()
+                    .map(row -> {
+                        int totalIn = defaultCount(row.getTotalIn());
+                        int totalOut = defaultCount(row.getTotalOut());
+                        return AdminInventoryResponse.InventoryLevelResponse.builder()
+                                .productId(row.getProductId())
+                                .productName(row.getProductName())
+                                .brand(row.getBrand())
+                                .outletId(row.getOutletId())
+                                .outletName(row.getOutletName())
+                                .totalIn(totalIn)
+                                .totalOut(totalOut)
+                                .available(totalIn - totalOut)
+                                .build();
+                    })
+                    .toList();
+
+            totalElements = inventoryPage.getTotalElements();
+            totalPages = inventoryPage.getTotalPages();
         }
-
-        for (StockOutEntry entry : stockOutEntries) {
-            String key = inventoryKey(entry.getOutlet().getId(), entry.getProduct().getId());
-            InventoryAccumulator accumulator = inventoryMap.computeIfAbsent(
-                    key,
-                    ignored -> new InventoryAccumulator(entry.getOutlet(), entry.getProduct())
-            );
-            accumulator.totalOut += entry.getQuantity();
-            accumulator.available -= entry.getQuantity();
-        }
-
-        List<AdminInventoryResponse.InventoryLevelResponse> inventoryLevels = inventoryMap.values().stream()
-                .filter(accumulator -> accumulator.totalIn > 0 || accumulator.totalOut > 0)
-                .sorted(Comparator
-                        .comparing((InventoryAccumulator accumulator) -> accumulator.outlet.getName())
-                        .thenComparing(accumulator -> accumulator.product.getBrand())
-                        .thenComparing(accumulator -> accumulator.product.getName()))
-                .map(accumulator -> AdminInventoryResponse.InventoryLevelResponse.builder()
-                        .productId(accumulator.product.getId())
-                        .productName(accumulator.product.getName())
-                        .brand(accumulator.product.getBrand())
-                        .outletId(accumulator.outlet.getId())
-                        .outletName(accumulator.outlet.getName())
-                        .totalIn(accumulator.totalIn)
-                        .totalOut(accumulator.totalOut)
-                        .available(accumulator.available)
-                        .build())
-                .filter(row -> matchesInventoryLevel(row, normalizedSearch))
-                .toList();
-
-        List<AdminInventoryResponse.InventoryMovementResponse> historyLog = stockOutEntries.stream()
-                .map(entry -> AdminInventoryResponse.InventoryMovementResponse.builder()
-                        .id(entry.getId())
-                        .date(entry.getDate().format(DATE_FORMATTER))
-                        .outletId(entry.getOutlet().getId())
-                        .outletName(entry.getOutlet().getName())
-                        .productId(entry.getProduct().getId())
-                        .productName(entry.getProduct().getName())
-                        .brand(entry.getProduct().getBrand())
-                        .quantity(entry.getQuantity())
-                        .reason(entry.getReason().name())
-                        .userName(entry.getEnteredBy().getName())
-                        .createdAt(entry.getCreatedAt().format(DATE_TIME_FORMATTER))
-                        .build())
-                .filter(log -> matchesInventoryHistory(log, normalizedSearch))
-                .toList();
-
-        int safeResolvedSize = safeSize;
-        List<AdminInventoryResponse.InventoryLevelResponse> pagedInventoryLevels =
-                "levels".equals(normalizedTab)
-                        ? paginate(inventoryLevels, safePage, safeResolvedSize)
-                        : List.of();
-        List<AdminInventoryResponse.InventoryMovementResponse> pagedHistoryLog =
-                "history".equals(normalizedTab)
-                        ? paginate(historyLog, safePage, safeResolvedSize)
-                        : List.of();
-
-        long totalElements = "history".equals(normalizedTab) ? historyLog.size() : inventoryLevels.size();
-        int totalPages = totalElements == 0 ? 0 : (int) Math.ceil((double) totalElements / safeResolvedSize);
 
         return AdminInventoryResponse.builder()
                 .outlets(getOutletSummaries())
                 .activeTab(normalizedTab)
                 .page(safePage)
-                .size(safeResolvedSize)
+                .size(safeSize)
                 .totalElements(totalElements)
                 .totalPages(totalPages)
                 .search(normalizedSearch)
@@ -346,59 +306,16 @@ public class AdminAnalyticsService {
         }
     }
 
-    private boolean matchesInventoryLevel(
-            AdminInventoryResponse.InventoryLevelResponse row,
-            String search
-    ) {
-        if (search == null || search.isBlank()) {
-            return true;
-        }
-
-        return row.getProductName().toLowerCase(Locale.ROOT).contains(search)
-                || row.getBrand().toLowerCase(Locale.ROOT).contains(search)
-                || row.getOutletName().toLowerCase(Locale.ROOT).contains(search);
+    private String normalizeSearch(String search) {
+        return search == null ? "" : search.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
-    private boolean matchesInventoryHistory(
-            AdminInventoryResponse.InventoryMovementResponse row,
-            String search
-    ) {
-        if (search == null || search.isBlank()) {
-            return true;
-        }
-
-        return row.getProductName().toLowerCase(Locale.ROOT).contains(search)
-                || row.getBrand().toLowerCase(Locale.ROOT).contains(search)
-                || row.getOutletName().toLowerCase(Locale.ROOT).contains(search)
-                || row.getUserName().toLowerCase(Locale.ROOT).contains(search)
-                || row.getReason().toLowerCase(Locale.ROOT).contains(search);
+    private BigDecimal defaultAmount(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
     }
 
-    private <T> List<T> paginate(List<T> items, int page, int size) {
-        int fromIndex = Math.min(page * size, items.size());
-        int toIndex = Math.min(fromIndex + size, items.size());
-        return items.subList(fromIndex, toIndex);
+    private int defaultCount(Integer value) {
+        return value != null ? value : 0;
     }
 
-    private String inventoryKey(Long outletId, Long productId) {
-        return outletId + ":" + productId;
-    }
-
-    private static class TrendAccumulator {
-        private BigDecimal revenue = BigDecimal.ZERO;
-        private BigDecimal profit = BigDecimal.ZERO;
-    }
-
-    private static class InventoryAccumulator {
-        private final Outlet outlet;
-        private final Product product;
-        private int totalIn;
-        private int totalOut;
-        private int available;
-
-        private InventoryAccumulator(Outlet outlet, Product product) {
-            this.outlet = outlet;
-            this.product = product;
-        }
-    }
 }
