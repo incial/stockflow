@@ -1,29 +1,15 @@
-
 import {
-  AdminDashboardData,
-  AdminInventoryData,
-  AdminReportsData,
-  AuditLog,
-  AuditLogPageData,
-  Outlet,
-  Product,
-  RefillerReportsData,
-  StockEntry,
-  StockOutEntry,
-  StockOutReason,
-  User
+  AdminDashboardData,AdminInventoryData,AdminReportsData,AuditLog,AuditLogPageData,Outlet,Product,RefillerReportsData,StockEntry,StockOutEntry,StockOutReason,User
 } from '../types';
 
-// ============================================
-// Configuration
-// ============================================
-//const API_BASE_URL = import.meta.env.API_BASE_URL || '/api/v1';
 
-const API_BASE_URL = 'http://localhost:8080/api/v1';
 
-// ============================================
-// Types
-// ============================================
+const API_BASE_URL = import.meta.env.API_BASE_URL || '/api/v1';
+
+//const API_BASE_URL = 'http://localhost:8080/api/v1';
+
+
+
 interface LoginResponse {
   token: string;
   user: User;
