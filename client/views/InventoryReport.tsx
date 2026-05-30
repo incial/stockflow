@@ -85,7 +85,7 @@ const InventoryReport: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400">
+      <div className="flex flex-col items-center justify-center min-h-[320px] sm:min-h-[400px] text-slate-400">
         <Loader2 className="animate-spin mb-4 text-indigo-500" size={40} />
         <p>Loading inventory...</p>
       </div>
@@ -93,15 +93,15 @@ const InventoryReport: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+    <div className="space-y-5 sm:space-y-6">
+      <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 sm:gap-6">
         <div>
-          <h2 className="text-4xl font-light text-slate-900 tracking-tight">Inventory</h2>
-          <p className="text-slate-500 mt-1 text-lg">Live stock tracking & history logs.</p>
+          <h2 className="text-3xl sm:text-4xl font-light text-slate-900 tracking-tight">Inventory</h2>
+          <p className="text-slate-500 mt-1 text-sm sm:text-lg">Live stock tracking & history logs.</p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto">
-          <div className="relative group flex-1 xl:w-[320px]">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full xl:w-auto">
+          <div className="relative group flex-1 w-full xl:w-[320px]">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
             <input
               type="text"
@@ -140,13 +140,13 @@ const InventoryReport: React.FC = () => {
         </div>
       </header>
 
-      <div className="flex p-1 bg-white/40 backdrop-blur-md rounded-2xl border border-white/20 w-fit">
+      <div className="flex p-1 bg-white/40 backdrop-blur-md rounded-2xl border border-white/20 w-full sm:w-fit">
         <button
           onClick={() => {
             setActiveTab('levels');
             setPage(0);
           }}
-          className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+          className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
             activeTab === 'levels'
               ? 'bg-white shadow-md text-indigo-600'
               : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
@@ -160,7 +160,7 @@ const InventoryReport: React.FC = () => {
             setActiveTab('history');
             setPage(0);
           }}
-          className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+          className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
             activeTab === 'history'
               ? 'bg-white shadow-md text-indigo-600'
               : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
@@ -172,7 +172,7 @@ const InventoryReport: React.FC = () => {
       </div>
 
       <div className="glass-panel px-4 py-3 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="text-sm text-slate-500">
+        <div className="text-xs sm:text-sm text-slate-500">
           {appliedSearch ? `Search: "${appliedSearch}" • ` : ''}
           Showing {showingFrom}-{showingTo} of {safeTotalElements}
         </div>
@@ -185,7 +185,7 @@ const InventoryReport: React.FC = () => {
             <ChevronLeft size={16} />
             Prev
           </button>
-          <div className="text-sm font-semibold text-slate-700 min-w-[88px] text-center">
+          <div className="text-xs sm:text-sm font-semibold text-slate-700 min-w-[88px] text-center">
             Page {safeTotalPages === 0 ? 0 : safePage + 1} / {safeTotalPages}
           </div>
           <button
@@ -200,36 +200,36 @@ const InventoryReport: React.FC = () => {
       </div>
 
       {activeTab === 'levels' && (
-        <div className="glass-panel rounded-[32px] overflow-hidden min-h-[500px]">
+        <div className="glass-panel rounded-[24px] sm:rounded-[32px] overflow-hidden min-h-[420px] sm:min-h-[500px]">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[680px]">
               <thead>
                 <tr className="bg-slate-50/50 text-[10px] uppercase tracking-wider font-bold text-slate-400 border-b border-slate-100">
-                  <th className="px-8 py-5">Outlet</th>
-                  <th className="px-8 py-5">Product Details</th>
-                  <th className="px-8 py-5 text-center">Total In</th>
-                  <th className="px-8 py-5 text-center text-rose-500">Total Out</th>
-                  <th className="px-8 py-5 text-center">Net Available</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5">Outlet</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5">Product Details</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-center">Total In</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-center text-rose-500">Total Out</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-center">Net Available</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50/50">
                 {data.inventoryLevels.length > 0 ? (
                   data.inventoryLevels.map((row) => (
                     <tr key={`${row.outletId}-${row.productId}`} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-8 py-4 text-sm font-bold text-slate-700">{row.outletName}</td>
-                      <td className="px-8 py-4">
+                      <td className="px-4 sm:px-8 py-4 text-sm font-bold text-slate-700">{row.outletName}</td>
+                      <td className="px-4 sm:px-8 py-4">
                         <div className="flex flex-col">
                           <span className="text-sm font-semibold text-slate-800">{row.productName}</span>
                           <span className="text-xs text-slate-500 font-medium">{row.brand}</span>
                         </div>
                       </td>
-                      <td className="px-8 py-4 text-center text-sm font-mono text-slate-600">{row.totalIn}</td>
-                      <td className="px-8 py-4 text-center">
+                      <td className="px-4 sm:px-8 py-4 text-center text-sm font-mono text-slate-600">{row.totalIn}</td>
+                      <td className="px-4 sm:px-8 py-4 text-center">
                         <span className={`text-sm font-mono px-2 py-1 rounded-md ${row.totalOut > 0 ? 'text-rose-600 bg-rose-50' : 'text-slate-400 bg-slate-50'}`}>
                           {row.totalOut > 0 ? `-${row.totalOut}` : '0'}
                         </span>
                       </td>
-                      <td className="px-8 py-4 text-center">
+                      <td className="px-4 sm:px-8 py-4 text-center">
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${
                           row.available <= 5
                             ? 'bg-rose-100/50 border-rose-200 text-rose-700'
@@ -242,7 +242,7 @@ const InventoryReport: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-8 py-20 text-center text-slate-400">
+                    <td colSpan={5} className="px-4 sm:px-8 py-16 sm:py-20 text-center text-slate-400">
                       <Layers size={48} className="mx-auto mb-4 opacity-20" />
                       <p className="text-lg">No inventory data found.</p>
                     </td>
@@ -255,17 +255,17 @@ const InventoryReport: React.FC = () => {
       )}
 
       {activeTab === 'history' && (
-        <div className="glass-panel rounded-[32px] overflow-hidden min-h-[500px]">
+        <div className="glass-panel rounded-[24px] sm:rounded-[32px] overflow-hidden min-h-[420px] sm:min-h-[500px]">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[760px]">
               <thead>
                 <tr className="bg-slate-50/50 text-[10px] uppercase tracking-wider font-bold text-slate-400 border-b border-slate-100">
-                  <th className="px-8 py-5">Date</th>
-                  <th className="px-8 py-5">Location</th>
-                  <th className="px-8 py-5">Product</th>
-                  <th className="px-8 py-5 text-center">Removed</th>
-                  <th className="px-8 py-5">Reason</th>
-                  <th className="px-8 py-5 text-right">User</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5">Date</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5">Location</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5">Product</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-center">Removed</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5">Reason</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-right">User</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50/50">

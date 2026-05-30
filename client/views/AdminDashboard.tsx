@@ -48,7 +48,7 @@ const AdminDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400">
+      <div className="flex flex-col items-center justify-center min-h-[320px] sm:min-h-[400px] text-slate-400">
         <Loader2 className="animate-spin mb-4 text-indigo-500" size={40} />
         <p>Loading dashboard...</p>
       </div>
@@ -58,19 +58,19 @@ const AdminDashboard: React.FC = () => {
   const stats = dashboard ?? emptyDashboard;
 
   return (
-    <div className="space-y-8 pb-10">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-2">
+    <div className="space-y-5 sm:space-y-8 pb-8 sm:pb-10">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4 mb-1 sm:mb-2">
         <div>
-          <h2 className="text-4xl font-light text-slate-900 tracking-tight">Overview</h2>
-          <p className="text-slate-500 mt-1 text-lg">Global performance analytics.</p>
+          <h2 className="text-3xl sm:text-4xl font-light text-slate-900 tracking-tight">Overview</h2>
+          <p className="text-slate-500 mt-1 text-sm sm:text-lg">Global performance analytics.</p>
         </div>
-        <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 text-sm text-slate-600 font-medium">
+        <div className="glass-panel self-start md:self-auto px-3 sm:px-4 py-2 rounded-full flex items-center gap-2 text-xs sm:text-sm text-slate-600 font-medium">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           System Operational
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
         <KpiCard
           title="Total Revenue"
           value={formatCurrency(stats.totalRevenue)}
@@ -108,14 +108,14 @@ const AdminDashboard: React.FC = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 glass-panel p-8 rounded-[32px] flex flex-col min-h-[400px]">
-          <div className="flex items-center justify-between mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="lg:col-span-2 glass-panel p-4 sm:p-8 rounded-[24px] sm:rounded-[32px] flex flex-col min-h-[320px] sm:min-h-[400px]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 sm:mb-8">
             <div>
-              <h3 className="text-xl font-bold text-slate-800">Financial Trend</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-slate-800">Financial Trend</h3>
               <p className="text-sm text-slate-400">Revenue vs Profit over time</p>
             </div>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-2 sm:gap-4">
               <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50/50 border border-indigo-100">
                 <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
                 <span className="text-xs font-bold text-indigo-700">Revenue</span>
@@ -159,11 +159,11 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="glass-panel p-8 rounded-[32px] flex flex-col">
-          <h3 className="text-xl font-bold text-slate-800 mb-1">Outlet Share</h3>
+        <div className="glass-panel p-4 sm:p-8 rounded-[24px] sm:rounded-[32px] flex flex-col">
+          <h3 className="text-lg sm:text-xl font-bold text-slate-800 mb-1">Outlet Share</h3>
           <p className="text-sm text-slate-400 mb-6">Profit distribution</p>
 
-          <div className="flex-1 min-h-[250px] relative">
+          <div className="flex-1 min-h-[220px] sm:min-h-[250px] relative">
             {stats.profitByOutlet.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -203,7 +203,7 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-6 space-y-3 max-h-[200px] overflow-y-auto custom-scrollbar">
+          <div className="mt-4 sm:mt-6 space-y-2.5 sm:space-y-3 max-h-[200px] overflow-y-auto custom-scrollbar">
             {stats.profitByOutlet.map((entry, index) => (
               <div key={entry.name} className="flex items-center justify-between text-sm group cursor-pointer hover:bg-slate-50/50 p-2 rounded-lg transition-colors">
                 <div className="flex items-center gap-3">

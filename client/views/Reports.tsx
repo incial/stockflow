@@ -300,8 +300,8 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
 
   if (summaryLoading) {
     return (
-      <div className="space-y-6">
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="space-y-5 sm:space-y-6">
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6">
           <div>
             <h2 className="text-3xl sm:text-4xl font-light text-slate-900 tracking-tight">Detailed Reports</h2>
             <p className="text-slate-500 mt-1 text-base sm:text-lg">Daily stock entry batches.</p>
@@ -313,8 +313,8 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="space-y-5 sm:space-y-6">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6">
         <div>
           <h2 className="text-3xl sm:text-4xl font-light text-slate-900 tracking-tight">Detailed Reports</h2>
           <p className="text-slate-500 mt-1 text-base sm:text-lg">Load one date at a time for faster review and export.</p>
@@ -333,7 +333,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
           <button
             onClick={handleExportCsv}
             disabled={detailsLoading || data.batches.length === 0}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 font-bold shadow-lg shadow-emerald-500/30 transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 sm:px-6 py-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 font-bold shadow-lg shadow-emerald-500/30 transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
             <FileDown size={20} />
             Export CSV
@@ -411,9 +411,9 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
       {detailsLoading ? (
         <ReportDetailsSkeleton />
       ) : selectedDate && data.batches.length > 0 ? (
-        <div className="space-y-8">
+        <div className="space-y-5 sm:space-y-8">
           {data.batches.map((batch) => (
-            <div key={batch.batchId} className="glass-panel rounded-[32px] overflow-hidden shadow-xl ring-1 ring-black/5">
+            <div key={batch.batchId} className="glass-panel rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-xl ring-1 ring-black/5">
               <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-3">
@@ -545,7 +545,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
               </div>
 
               <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[920px]">
+                <table className="w-full text-left border-collapse min-w-[860px] lg:min-w-[920px]">
                   <thead>
                     <tr className="bg-slate-900 text-white text-[10px] uppercase tracking-widest font-bold">
                       <th className="px-6 py-4 border-r border-white/10">Sl</th>
@@ -605,7 +605,7 @@ const Reports: React.FC<ReportsProps> = ({ currentUser }) => {
           ))}
         </div>
       ) : (
-        <div className="glass-panel rounded-[32px] p-10 sm:p-16 lg:p-24 text-center">
+        <div className="glass-panel rounded-[24px] sm:rounded-[32px] p-8 sm:p-16 lg:p-24 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 text-slate-300 rounded-full mb-6">
             <CalendarDays size={40} />
           </div>

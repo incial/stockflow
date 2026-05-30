@@ -100,7 +100,7 @@ const AuditLogs: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400">
+      <div className="flex flex-col items-center justify-center min-h-[320px] sm:min-h-[400px] text-slate-400">
         <Loader2 className="animate-spin mb-4 text-indigo-500" size={40} />
         <p>Loading activity logs...</p>
       </div>
@@ -108,13 +108,13 @@ const AuditLogs: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 pb-20">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="space-y-5 sm:space-y-6 pb-16 sm:pb-20">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4">
         <div>
-          <h2 className="text-4xl font-light text-slate-900 tracking-tight">Activity Log</h2>
-          <p className="text-slate-500 mt-1 text-lg">System-wide security and action tracking.</p>
+          <h2 className="text-3xl sm:text-4xl font-light text-slate-900 tracking-tight">Activity Log</h2>
+          <p className="text-slate-500 mt-1 text-sm sm:text-lg">System-wide security and action tracking.</p>
         </div>
-        <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 text-sm text-slate-600 font-medium">
+        <div className="glass-panel self-start md:self-auto px-3 sm:px-4 py-2 rounded-full flex items-center gap-2 text-xs sm:text-sm text-slate-600 font-medium">
           <ShieldAlert size={16} className="text-indigo-600" />
           <span>Restricted Access: Admin Only</span>
         </div>
@@ -149,7 +149,7 @@ const AuditLogs: React.FC = () => {
       </div>
 
       <div className="glass-panel px-4 py-3 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="text-sm text-slate-500">
+        <div className="text-xs sm:text-sm text-slate-500">
           Showing {showingFrom}-{showingTo} of {totalElements}
         </div>
         <div className="flex items-center gap-2">
@@ -161,7 +161,7 @@ const AuditLogs: React.FC = () => {
             <ChevronLeft size={16} />
             Prev
           </button>
-          <div className="text-sm font-semibold text-slate-700 min-w-[88px] text-center">
+          <div className="text-xs sm:text-sm font-semibold text-slate-700 min-w-[88px] text-center">
             Page {totalPages === 0 ? 0 : page + 1} / {totalPages}
           </div>
           <button
@@ -175,7 +175,7 @@ const AuditLogs: React.FC = () => {
         </div>
       </div>
 
-      <div className="glass-panel rounded-[32px] overflow-hidden min-h-[500px]">
+      <div className="glass-panel rounded-[24px] sm:rounded-[32px] overflow-hidden min-h-[420px] sm:min-h-[500px]">
         {filteredLogs.length === 0 ? (
           <div className="p-20 text-center">
              <div className="bg-slate-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
@@ -194,7 +194,7 @@ const AuditLogs: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[760px]">
               <thead>
                 <tr className="bg-slate-50/50 text-[10px] uppercase tracking-wider font-bold text-slate-400 border-b border-slate-100">
                   <th className="px-6 py-5">Time</th>

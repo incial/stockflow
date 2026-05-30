@@ -42,7 +42,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   const sidebarWidthClass = isSidebarOpen ? 'w-72' : 'w-20';
   // Desktop: Fixed floating dock. Mobile: Fixed full height sheet.
   const containerClasses = isMobile 
-    ? `fixed top-0 left-0 h-full w-72 bg-slate-900/95 backdrop-blur-xl z-50 transition-transform duration-300 ${!isSidebarOpen ? '-translate-x-full' : 'translate-x-0'}`
+    ? `fixed top-0 left-0 h-full w-[85vw] max-w-[20rem] bg-slate-900/95 backdrop-blur-xl z-50 transition-transform duration-300 ${!isSidebarOpen ? '-translate-x-full' : 'translate-x-0'}`
     : `fixed top-4 left-4 bottom-4 rounded-[32px] glass-panel-dark z-50 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col ${sidebarWidthClass}`;
 
   return (
@@ -58,7 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       {/* Sidebar Container */}
       <aside className={`${containerClasses} shadow-2xl border border-white/5 overflow-hidden`}>
         {/* Header / Logo */}
-        <div className={`h-24 flex items-center ${isSidebarOpen ? 'justify-between px-6' : 'justify-center'} border-b border-white/5`}>
+        <div className={`h-20 sm:h-24 flex items-center ${isSidebarOpen ? 'justify-between px-4 sm:px-6' : 'justify-center'} border-b border-white/5`}>
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="shrink-0 transition-transform duration-300 hover:scale-105">
               <img 
@@ -90,14 +90,14 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-8 px-4 space-y-3 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 py-5 sm:py-8 px-3 sm:px-4 space-y-2.5 sm:space-y-3 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`group flex items-center gap-4 px-3 py-3.5 rounded-2xl transition-all duration-300 relative ${
+                className={`group flex items-center gap-3 sm:gap-4 px-3 py-3 rounded-2xl transition-all duration-300 relative ${
                   isActive
                     ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-900/40'
                     : 'hover:bg-white/5 text-slate-400 hover:text-white'
@@ -127,7 +127,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
           })}
         </nav>
         {/* User Footer */}
-        <div className="p-4 border-t border-white/5 bg-black/20">
+        <div className="p-3 sm:p-4 border-t border-white/5 bg-black/20">
           <div className={`flex items-center gap-3 ${isSidebarOpen ? '' : 'justify-center'}`}>
             {/* Avatar - show profile picture if available, otherwise show initials */}
             <div className="relative w-10 h-10 shrink-0">

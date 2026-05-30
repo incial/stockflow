@@ -17,7 +17,7 @@ const LayoutContent: React.FC<MainLayoutProps> = ({ user, onLogout, children }) 
   const [imageError, setImageError] = useState(false);
 
   return (
-    <div className="min-h-screen flex relative">
+    <div className="min-h-screen flex relative overflow-x-clip">
       <Sidebar user={user} onLogout={onLogout} />
 
       {/* Main Content Wrapper */}
@@ -29,7 +29,7 @@ const LayoutContent: React.FC<MainLayoutProps> = ({ user, onLogout, children }) 
       >
         {/* Mobile Header for Sidebar Toggle */}
         {isMobile && (
-          <div className="glass-panel sticky top-0 z-30 px-4 py-3 flex items-center justify-between mb-4 mx-4 mt-4 rounded-xl">
+          <div className="glass-panel sticky top-0 z-30 px-3 py-2.5 flex items-center justify-between mb-3 mx-3 mt-3 rounded-xl">
              <div className="flex items-center gap-3">
                 <button 
                   onClick={toggleSidebar}
@@ -65,8 +65,8 @@ const LayoutContent: React.FC<MainLayoutProps> = ({ user, onLogout, children }) 
         )}
 
         {/* Page Content */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-x-hidden">
-          <div className="max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <main className="flex-1 px-3 py-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden">
+          <div className="max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 w-full">
             {children}
           </div>
         </main>

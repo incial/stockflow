@@ -41,7 +41,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   }, []);
 
   return (
-    <div className={`relative min-w-[200px] ${className}`} ref={containerRef}>
+    <div className={`relative w-full sm:min-w-[200px] ${className}`} ref={containerRef}>
       {/* Trigger Button */}
       <button
         type="button"
