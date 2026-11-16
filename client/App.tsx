@@ -1,279 +1,71 @@
-
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { User, UserRole, StockEntry, StockOutEntry, Product } from './types';
-import Login from './views/Login';
-import AdminDashboard from './views/AdminDashboard';
-import RefillerDashboard from './views/RefillerDashboard';
-import RefillerReports from './views/RefillerReports';
-import StockOut from './views/StockOut';
-import Reports from './views/Reports';
-import InventoryReport from './views/InventoryReport';
-import AuditLogs from './views/AuditLogs';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { User, UserRole } from './types';
 import MainLayout from './components/MainLayout';
+import { Loading } from './components/ui';
 import { ToastProvider, useToast } from './context/ToastContext';
+import { SESSION_EXPIRED_EVENT, SESSION_EXPIRED_MESSAGE, session } from './services/session';
 import { api } from './services/api';
-import { Loader2 } from 'lucide-react';
+// Login is bundled with the entry chunk (it is small) so the sign-in screen paints
+// without waiting on an extra network round trip.
+import Login from './views/Login';
 
-const AppRoutes: React.FC<{
-  currentUser: User;
-  isGlobalLoading: boolean;
-  entries: StockEntry[];
-  stockOuts: StockOutEntry[];
-  products: Product[];
-  onLogout: () => void;
-  onAddBatch: (newEntries: StockEntry[], newProducts: Product[]) => Promise<void>;
-  onAddStockOut: (newStockOuts: StockOutEntry[]) => Promise<void>;
-  onRefresh: () => Promise<void>;
-}> = ({
-  currentUser,
-  isGlobalLoading,
-  entries,
-  stockOuts,
-  products,
-  onLogout,
-  onAddBatch,
-  onAddStockOut,
-  onRefresh
-}) => {
-  const location = useLocation();
+// Each screen is its own chunk: the login page never downloads charts or admin code,
+// and a refiller never downloads admin screens.
+const AdminDashboard = lazy(() => import('./views/AdminDashboard'));
+const InventoryReport = lazy(() => import('./views/InventoryReport'));
+const Reports = lazy(() => import('./views/Reports'));
+const AuditLogs = lazy(() => import('./views/AuditLogs'));
+const RefillerDashboard = lazy(() => import('./views/RefillerDashboard'));
+const StockOut = lazy(() => import('./views/StockOut'));
+const RefillerReports = lazy(() => import('./views/RefillerReports'));
 
-  useEffect(() => {
-    onRefresh();
-  }, [location.pathname, onRefresh]);
+const AdminRoutes: React.FC = () => (
+  <Routes>
+    <Route path="/" element={<AdminDashboard />} />
+    <Route path="/inventory" element={<InventoryReport />} />
+    <Route path="/reports" element={<Reports />} />
+    <Route path="/audit-logs" element={<AuditLogs />} />
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </Routes>
+);
 
-  return (
-    <MainLayout user={currentUser} onLogout={onLogout}>
-      {isGlobalLoading && (
-        <div className="fixed inset-0 z-[100] bg-white/50 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white p-4 rounded-full shadow-2xl">
-            <Loader2 className="animate-spin text-indigo-600" size={32} />
-          </div>
-        </div>
-      )}
-      <Routes>
-        {currentUser.role === UserRole.ADMIN ? (
-          <>
-            <Route path="/" element={<AdminDashboard />} />
-            <Route path="/inventory" element={<InventoryReport />} />
-            <Route path="/reports" element={<Reports currentUser={currentUser} />} />
-            <Route path="/audit-logs" element={<AuditLogs />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </>
-        ) : (
-          <>
-            <Route
-              path="/"
-              element={
-                <RefillerDashboard
-                  user={currentUser}
-                  entries={entries}
-                  products={products}
-                  onAddBatch={onAddBatch}
-                  onRefresh={onRefresh}
-                />
-              }
-            />
-            <Route
-              path="/stock-out"
-              element={
-                <StockOut
-                  user={currentUser}
-                  products={products}
-                  stockEntries={entries}
-                  stockOutEntries={stockOuts}
-                  onAddStockOut={onAddStockOut}
-                />
-              }
-            />
-            <Route path="/reports" element={<RefillerReports />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </>
-        )}
-      </Routes>
-    </MainLayout>
-  );
-};
+const RefillerRoutes: React.FC<{ user: User }> = ({ user }) => (
+  <Routes>
+    <Route path="/" element={<RefillerDashboard user={user} />} />
+    <Route path="/stock-out" element={<StockOut user={user} />} />
+    <Route path="/reports" element={<RefillerReports />} />
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </Routes>
+);
 
 const AppContent: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [entries, setEntries] = useState<StockEntry[]>([]);
-  const [stockOuts, setStockOuts] = useState<StockOutEntry[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  
-  const [isGlobalLoading, setIsGlobalLoading] = useState(true);
+  // Session is restored synchronously, so there is no loading flash on start-up.
+  const [currentUser, setCurrentUser] = useState<User | null>(() => session.restore());
   const { addToast } = useToast();
-  const refreshRequestIdRef = useRef(0);
-  const inFlightRefreshKeyRef = useRef<string | null>(null);
 
-  // 1. Initial Session Check
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('sm_user');
-    
-    if (token && savedUser) {
-      setCurrentUser(JSON.parse(savedUser));
-    } else {
-      setIsGlobalLoading(false);
-    }
+  const handleLogin = useCallback((user: User, token: string) => {
+    session.save(user, token);
+    setCurrentUser(user);
   }, []);
 
-  // 2. Data Fetching Logic
-  const refreshData = useCallback(async () => {
-    if (!currentUser) return;
-
-    const hashPath = window.location.hash.replace(/^#/, '') || '/';
-    const refreshKey = `${currentUser.id}:${currentUser.role}:${currentUser.outletId ?? 'none'}:${hashPath}`;
-    if (inFlightRefreshKeyRef.current === refreshKey) {
-      return;
-    }
-
-    const requestId = ++refreshRequestIdRef.current;
-    inFlightRefreshKeyRef.current = refreshKey;
-    setIsGlobalLoading(true);
-    try {
-      if (currentUser.role === UserRole.ADMIN) {
-        if (requestId === refreshRequestIdRef.current) {
-          setProducts([]);
-          setEntries([]);
-          setStockOuts([]);
-        }
-        return;
-      }
-
-      const outletFilter = currentUser.outletId || undefined;
-      const needsStockOutHistory = hashPath === '/stock-out';
-      const [fetchedProducts, fetchedEntries, fetchedStockOuts] = await Promise.all([
-        api.products.getAll(),
-        api.stockIn.getAll(outletFilter),
-        needsStockOutHistory ? api.stockOut.getAll(outletFilter) : Promise.resolve<StockOutEntry[]>([]),
-      ]);
-
-      if (requestId === refreshRequestIdRef.current) {
-        setProducts(fetchedProducts);
-        setEntries(fetchedEntries);
-        setStockOuts(fetchedStockOuts);
-      }
-    } catch (error: any) {
-      if (requestId === refreshRequestIdRef.current) {
-        console.error("Failed to load data", error);
-        addToast(error.message || "Failed to connect to server.", "error");
-      }
-    } finally {
-      if (inFlightRefreshKeyRef.current === refreshKey) {
-        inFlightRefreshKeyRef.current = null;
-      }
-      if (requestId === refreshRequestIdRef.current) {
-        setIsGlobalLoading(false);
-      }
-    }
-  }, [currentUser, addToast]);
-
-  const handleLogin = (user: User, token: string) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('sm_user', JSON.stringify(user));
-    setCurrentUser(user);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('sm_user');
+  const handleLogout = useCallback(() => {
+    session.clear();
+    api.products.invalidate();
     setCurrentUser(null);
-    setEntries([]);
-    setStockOuts([]);
-    setProducts([]);
-  };
+    window.location.hash = '#/';
+  }, []);
 
-  const handleBatchSubmit = async (newEntries: StockEntry[], newProducts: Product[] = []) => {
-    try {
-      setIsGlobalLoading(true);
-      
-      if (newEntries.length === 0) {
-        setIsGlobalLoading(false);
-        return;
-      }
-
-      // 1. Process New Products Creation First
-      const productIdMap: Record<number, number> = {}; // Maps tempId -> realId
-
-      if (newProducts.length > 0) {
-        // Create new products sequentially (or parallel) to get real IDs
-        await Promise.all(newProducts.map(async (p) => {
-          try {
-            const createdProduct = await api.products.create({
-              name: p.name,
-              brand: p.brand,
-              mrp: p.mrp
-            });
-            productIdMap[p.id] = createdProduct.id;
-          } catch (e: any) {
-            console.error(`Failed to create product ${p.name}`, e);
-            throw new Error(`Failed to create new product: ${p.name}`);
-          }
-        }));
-      }
-
-      // 2. Update entries with real Product IDs
-      const finalEntries = newEntries.map(entry => {
-        const realId = productIdMap[entry.productId] || entry.productId;
-        return { ...entry, productId: realId };
-      });
-      
-      // 3. Prepare payload for backend
-      const payload = {
-        outletId: currentUser?.outletId || finalEntries[0].outletId,
-        entryDate: finalEntries[0].entryDate,
-        items: finalEntries.map(e => ({
-          productId: e.productId,
-          quantity: e.quantity,
-          amount: e.amount
-        }))
-      };
-
-      await api.stockIn.addBatch(payload);
-      addToast("Stock successfully synced with server.", "success");
-      await refreshData(); // Re-fetch to get server-generated IDs and consistency
-      
-    } catch (error: any) {
-       console.error(error);
-       addToast(error.message || "Failed to save stock batch.", "error");
-    } finally {
-       setIsGlobalLoading(false);
-    }
-  };
-
-  const handleStockOutSubmit = async (newStockOuts: StockOutEntry[]) => {
-    try {
-      setIsGlobalLoading(true);
-      if (newStockOuts.length === 0) return;
-
-      const payload = {
-         outletId: currentUser?.outletId || newStockOuts[0].outletId,
-         entryDate: newStockOuts[0].date,
-         items: newStockOuts.map(e => ({
-           productId: e.productId,
-           quantity: e.quantity,
-           reason: e.reason
-         }))
-      };
-
-      await api.stockOut.addBatch(payload);
-      addToast("Stock out recorded successfully.", "success");
-      await refreshData();
-    } catch (error: any) {
-      console.error(error);
-      addToast(error.message || "Failed to record stock out.", "error");
-      setIsGlobalLoading(false);
-    }
-  };
-
-  if (isGlobalLoading && !currentUser) {
-     return (
-       <div className="h-screen w-full flex items-center justify-center bg-slate-50">
-          <Loader2 className="animate-spin text-indigo-600" size={48} />
-       </div>
-     );
-  }
+  // Any 401 from the API lands here instead of hard-navigating to a non-existent route.
+  useEffect(() => {
+    const onExpired = () => {
+      api.products.invalidate();
+      setCurrentUser(null);
+      addToast(SESSION_EXPIRED_MESSAGE, 'error');
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, [addToast]);
 
   if (!currentUser) {
     return <Login onLogin={handleLogin} />;
@@ -281,27 +73,19 @@ const AppContent: React.FC = () => {
 
   return (
     <HashRouter>
-      <AppRoutes
-        currentUser={currentUser}
-        isGlobalLoading={isGlobalLoading}
-        entries={entries}
-        stockOuts={stockOuts}
-        products={products}
-        onLogout={handleLogout}
-        onAddBatch={handleBatchSubmit}
-        onAddStockOut={handleStockOutSubmit}
-        onRefresh={refreshData}
-      />
+      <MainLayout user={currentUser} onLogout={handleLogout}>
+        <Suspense fallback={<Loading />}>
+          {currentUser.role === UserRole.ADMIN ? <AdminRoutes /> : <RefillerRoutes user={currentUser} />}
+        </Suspense>
+      </MainLayout>
     </HashRouter>
   );
 };
 
-const App: React.FC = () => {
-  return (
-    <ToastProvider>
-      <AppContent />
-    </ToastProvider>
-  );
-};
+const App: React.FC = () => (
+  <ToastProvider>
+    <AppContent />
+  </ToastProvider>
+);
 
 export default App;

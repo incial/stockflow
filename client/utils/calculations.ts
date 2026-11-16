@@ -1,249 +1,66 @@
+import { Product } from '../types';
 
-import { StockEntry, StockOutEntry, Product, Outlet, EnrichedStockEntry } from '../types';
+// Intl formatters are expensive to construct; build each one once and reuse it.
+const TZ = 'Asia/Kolkata';
+const currencyFmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+const amountFmt = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const numberFmt = new Intl.NumberFormat('en-IN');
+const shortDateFmt = new Intl.DateTimeFormat('en-IN', { month: 'short', day: 'numeric', year: 'numeric', timeZone: TZ });
+const ddmmyyyyFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TZ });
+const timeFmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: TZ });
+const readableDateFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: TZ });
+const fullDateFmt = new Intl.DateTimeFormat('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: TZ });
+const isoDateFmt = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: TZ });
 
-export interface StockAggregate {
-  totalIn: number;
-  totalOut: number;
-  available: number;
-}
+const isDateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
-export interface StockLookupMaps {
-  productMap: Map<number, Product>;
-  outletMap: Map<number, Outlet>;
-}
+/** Parse an API date. Plain `YYYY-MM-DD` values are calendar dates, not UTC instants. */
+const toDate = (value: string): Date | null => {
+  const date = isDateOnly(value) ? new Date(`${value}T12:00:00+05:30`) : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
 
 export const buildProductMap = (products: Product[]): Map<number, Product> =>
   new Map(products.map(product => [product.id, product]));
 
-export const buildOutletMap = (outlets: Outlet[]): Map<number, Outlet> =>
-  new Map(outlets.map(outlet => [outlet.id, outlet]));
+export const formatCurrency = (value: number): string => currencyFmt.format(Number.isFinite(value) ? value : 0);
 
-export const buildStockLookupMaps = (
-  products: Product[],
-  outlets: Outlet[]
-): StockLookupMaps => ({
-  productMap: buildProductMap(products),
-  outletMap: buildOutletMap(outlets)
-});
+/** Two-decimal amount without currency symbol (e.g. 1,234.50). */
+export const formatAmount = (value: number): string => amountFmt.format(Number.isFinite(value) ? value : 0);
 
-export const getStockAggregateKey = (productId: number, outletId: number): string =>
-  `${outletId}:${productId}`;
-
-export const buildStockAggregateMap = (
-  stockInEntries: StockEntry[],
-  stockOutEntries: StockOutEntry[]
-): Map<string, StockAggregate> => {
-  const aggregates = new Map<string, StockAggregate>();
-
-  const getOrCreateAggregate = (productId: number, outletId: number): StockAggregate => {
-    const key = getStockAggregateKey(productId, outletId);
-    const existing = aggregates.get(key);
-    if (existing) {
-      return existing;
-    }
-
-    const created: StockAggregate = { totalIn: 0, totalOut: 0, available: 0 };
-    aggregates.set(key, created);
-    return created;
-  };
-
-  stockInEntries.forEach(entry => {
-    const aggregate = getOrCreateAggregate(entry.productId, entry.outletId);
-    aggregate.totalIn += entry.quantity;
-    aggregate.available += entry.quantity;
-  });
-
-  stockOutEntries.forEach(entry => {
-    const aggregate = getOrCreateAggregate(entry.productId, entry.outletId);
-    aggregate.totalOut += entry.quantity;
-    aggregate.available -= entry.quantity;
-  });
-
-  return aggregates;
-};
-
-export const getStockAggregate = (
-  aggregateMap: Map<string, StockAggregate>,
-  productId: number,
-  outletId: number
-): StockAggregate | undefined => aggregateMap.get(getStockAggregateKey(productId, outletId));
-
-export const getAvailableStockFromAggregateMap = (
-  aggregateMap: Map<string, StockAggregate>,
-  productId: number,
-  outletId: number
-): number => getStockAggregate(aggregateMap, productId, outletId)?.available ?? 0;
-
-export const calculateEntryMetrics = (
-  entry: StockEntry,
-  products: Product[],
-  outlets: Outlet[]
-): EnrichedStockEntry => {
-  const { productMap, outletMap } = buildStockLookupMaps(products, outlets);
-
-  return calculateEntryMetricsWithMaps(
-    entry,
-    productMap,
-    outletMap
-  );
-};
-
-export const calculateEntryMetricsWithMaps = (
-  entry: StockEntry,
-  productMap: Map<number, Product>,
-  outletMap: Map<number, Outlet>
-): EnrichedStockEntry => {
-  const product = productMap.get(entry.productId);
-  const outlet = outletMap.get(entry.outletId);
-
-  // Fallback values if data is missing (e.g. deleted product/outlet or data sync issue)
-  const productName = product?.name || 'Unknown Product';
-  const brand = product?.brand || 'Unknown Brand';
-  const mrp = product?.mrp || 0;
-  const outletName = outlet?.name || 'Unknown Outlet';
-
-  const revenue = mrp * entry.quantity;
-  const profit = revenue - entry.amount;
-  const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
-  const marginPerBottle = entry.quantity > 0 ? profit / entry.quantity : 0;
-
-  return {
-    ...entry,
-    productName,
-    brand,
-    outletName,
-    mrp,
-    revenue,
-    profit,
-    margin,
-    marginPerBottle
-  };
-};
-
-export const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0
-  }).format(value);
-};
+export const formatNumber = (value: number): string => numberFmt.format(Number.isFinite(value) ? value : 0);
 
 export const formatDate = (dateString: string): string => {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('en-IN', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'Asia/Kolkata'
-  });
+  const date = toDate(dateString);
+  return date ? shortDateFmt.format(date) : dateString;
 };
 
-export const formatDateTime = (dateString: string): string => {
-  if (!dateString) return '-';
-  try {
-    return new Date(dateString).toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      timeZone: 'Asia/Kolkata'
-    });
-  } catch (e) {
-    return dateString;
-  }
-};
-
+/** DD-MM-YYYY */
 export const formatIndianDate = (dateString: string): string => {
   if (!dateString) return '-';
-
-  try {
-    const parts = dateString.includes('T')
-      ? new Date(dateString).toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          timeZone: 'Asia/Kolkata'
-        }).split('/')
-      : dateString.split('-').reverse();
-
-    return parts.join('-');
-  } catch (e) {
-    return dateString;
-  }
-};
-
-export const formatIndianDateTime = (dateString: string): string => {
-  if (!dateString) return '-';
-
-  try {
-    const formatter = new Intl.DateTimeFormat('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: 'Asia/Kolkata'
-    });
-
-    return formatter.format(new Date(dateString)).replace(',', '');
-  } catch (e) {
-    return dateString;
-  }
+  if (isDateOnly(dateString)) return dateString.split('-').reverse().join('-');
+  const date = toDate(dateString);
+  return date ? ddmmyyyyFmt.format(date).split('/').join('-') : dateString;
 };
 
 export const formatIndianTime = (dateString: string): string => {
-  if (!dateString) return '-';
-
-  try {
-    return new Intl.DateTimeFormat('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: 'Asia/Kolkata'
-    }).format(new Date(dateString));
-  } catch (e) {
-    return dateString;
-  }
+  const date = dateString ? toDate(dateString) : null;
+  return date ? timeFmt.format(date) : '-';
 };
 
 export const formatIndianReadableDate = (dateString: string): string => {
-  if (!dateString) return '-';
-
-  try {
-    const formatted = new Intl.DateTimeFormat('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      timeZone: 'Asia/Kolkata'
-    }).format(new Date(dateString));
-
-    const [day, month, year] = formatted.split(' ');
-    return `${day} ${month.toLowerCase()} ${year}`;
-  } catch (e) {
-    return dateString;
-  }
+  const date = dateString ? toDate(dateString) : null;
+  return date ? readableDateFmt.format(date) : '-';
 };
 
-export const formatFullDate = (date?: Date): string => {
-  const d = date || new Date();
-  return d.toLocaleDateString('en-IN', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'Asia/Kolkata'
-  });
-};
+export const formatFullDate = (date: Date = new Date()): string => fullDateFmt.format(date);
 
-export const getAvailableStock = (
-  productId: number,
-  outletId: number,
-  stockInEntries: StockEntry[],
-  stockOutEntries: StockOutEntry[]
-): number => {
-  const aggregateMap = buildStockAggregateMap(stockInEntries, stockOutEntries);
-  return getAvailableStockFromAggregateMap(aggregateMap, productId, outletId);
-};
+/**
+ * Today's calendar date in India as YYYY-MM-DD.
+ * (`toISOString()` is UTC and returns yesterday's date before 05:30 IST.)
+ */
+export const todayISO = (): string => isoDateFmt.format(new Date());
+
+export const marginTone = (margin: number): 'success' | 'warning' | 'danger' =>
+  margin > 20 ? 'success' : margin > 10 ? 'warning' : 'danger';

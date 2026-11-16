@@ -1,69 +1,68 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
-import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, CheckCircle, Info, X } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'info';
 
 export interface Toast {
-  id: string;
+  id: number;
   message: string;
   type: ToastType;
 }
 
 interface ToastContextType {
   addToast: (message: string, type?: ToastType) => void;
-  removeToast: (id: string) => void;
+  removeToast: (id: number) => void;
 }
+
+const MAX_TOASTS = 4;
+const DURATION: Record<ToastType, number> = { success: 3000, info: 3500, error: 5000 };
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
-export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const timers = useRef(new Map<number, number>());
+  const nextId = useRef(1);
+
+  const removeToast = useCallback((id: number) => {
+    const timer = timers.current.get(id);
+    if (timer !== undefined) {
+      window.clearTimeout(timer);
+      timers.current.delete(id);
+    }
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const addToast = useCallback((message: string, type: ToastType = 'info') => {
-    const id = Math.random().toString(36).substr(2, 9);
-    setToasts(prev => [...prev, { id, message, type }]);
+    const id = nextId.current++;
+    setToasts((prev) => {
+      // Collapse an identical message that is already visible instead of stacking duplicates.
+      const withoutDuplicate = prev.filter((t) => !(t.message === message && t.type === type));
+      return [...withoutDuplicate, { id, message, type }].slice(-MAX_TOASTS);
+    });
+    timers.current.set(id, window.setTimeout(() => removeToast(id), DURATION[type]));
+  }, [removeToast]);
 
-    // Auto remove after 3 seconds
-    setTimeout(() => {
-      removeToast(id);
-    }, 3000);
+  useEffect(() => {
+    const pending = timers.current;
+    return () => pending.forEach((timer) => window.clearTimeout(timer));
   }, []);
 
-  const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
+  const value = useMemo(() => ({ addToast, removeToast }), [addToast, removeToast]);
 
   return (
-    <ToastContext.Provider value={{ addToast, removeToast }}>
+    <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-3 pointer-events-none">
-        {toasts.map(toast => (
-          <div 
-            key={toast.id}
-            className={`
-              pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border animate-in slide-in-from-right-10 fade-in duration-300 max-w-sm
-              ${toast.type === 'success' ? 'bg-white border-emerald-100 text-slate-800' : ''}
-              ${toast.type === 'error' ? 'bg-white border-rose-100 text-slate-800' : ''}
-              ${toast.type === 'info' ? 'bg-white border-blue-100 text-slate-800' : ''}
-            `}
-          >
-             <div className={`
-               p-1.5 rounded-full shrink-0
-               ${toast.type === 'success' ? 'bg-emerald-100 text-emerald-600' : ''}
-               ${toast.type === 'error' ? 'bg-rose-100 text-rose-600' : ''}
-               ${toast.type === 'info' ? 'bg-blue-100 text-blue-600' : ''}
-             `}>
-               {toast.type === 'success' && <CheckCircle size={16} />}
-               {toast.type === 'error' && <AlertCircle size={16} />}
-               {toast.type === 'info' && <Info size={16} />}
-             </div>
-             <p className="text-sm font-medium pr-2">{toast.message}</p>
-             <button 
-                onClick={() => removeToast(toast.id)} 
-                className="ml-auto text-slate-300 hover:text-slate-500 transition-colors p-1"
-             >
-               <X size={14} />
-             </button>
+      <div className="toasts" aria-live="polite">
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`toast toast-${toast.type}`} role={toast.type === 'error' ? 'alert' : 'status'}>
+            {toast.type === 'success' && <CheckCircle size={18} />}
+            {toast.type === 'error' && <AlertCircle size={18} />}
+            {toast.type === 'info' && <Info size={18} />}
+            <p>{toast.message}</p>
+            <button className="icon-btn" style={{ width: 24, height: 24 }} aria-label="Dismiss" onClick={() => removeToast(toast.id)}>
+              <X size={14} />
+            </button>
           </div>
         ))}
       </div>

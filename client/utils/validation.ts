@@ -1,3 +1,5 @@
+import { todayISO } from './calculations';
+
 /**
  * Frontend validation utilities for stock management application
  */
@@ -142,15 +144,12 @@ export const validateDate = (
     return { isValid: false, error: `${fieldName} is required` };
   }
 
-  const date = new Date(value);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  if (isNaN(date.getTime())) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(new Date(`${value}T00:00:00`).getTime())) {
     return { isValid: false, error: `${fieldName} is invalid` };
   }
 
-  if (!allowFuture && date > today) {
+  // Compare calendar dates as strings (YYYY-MM-DD sorts lexicographically) in IST.
+  if (!allowFuture && value > todayISO()) {
     return { isValid: false, error: `${fieldName} cannot be in the future` };
   }
 
@@ -204,19 +203,4 @@ export const validateStockAvailability = (
   }
 
   return { isValid: true };
-};
-
-/**
- * Get CSS classes for input based on validation state
- * @param isValid - Whether input is valid
- * @param hasError - Whether there's an error message
- */
-export const getInputClassName = (isValid: boolean, hasError: boolean): string => {
-  const baseClasses = 'mt-1 block w-full rounded-md shadow-sm sm:text-sm';
-  
-  if (hasError || !isValid) {
-    return `${baseClasses} border-red-300 text-red-900 placeholder-red-300 focus:outline-none focus:ring-red-500 focus:border-red-500`;
-  }
-  
-  return `${baseClasses} border-gray-300 focus:ring-indigo-500 focus:border-indigo-500`;
 };

@@ -1,343 +1,227 @@
-import React, { useEffect, useState } from 'react';
-import { CalendarDays, Check, Edit2, Loader2, PackageSearch, X } from 'lucide-react';
-import { useToast } from '../context/ToastContext';
+import React, { useState } from 'react';
+import { CalendarDays, Check, Edit2, PackageSearch, X } from 'lucide-react';
+import { RefillerBatchEntry, RefillerReportsData } from '../types';
 import { api } from '../services/api';
-import { RefillerBatch, RefillerBatchEntry, RefillerReportsData } from '../types';
-import { formatIndianDate, formatIndianTime } from '../utils/calculations';
+import { useAsyncData } from '../hooks/useAsyncData';
+import { useIsMobile } from '../hooks/useMediaQuery';
+import { useToast } from '../context/ToastContext';
+import { formatAmount, formatIndianDate, formatIndianTime } from '../utils/calculations';
+import { sanitizeNumberInput, validatePositiveDecimal, validatePositiveInteger } from '../utils/validation';
+import { EmptyState, Loading, PageHeader, ProgressBar, Spinner, StatCard } from '../components/ui';
 
-const emptyReportsData: RefillerReportsData = {
-  selectedDate: null,
-  dates: [],
-  batches: []
-};
+const EMPTY: RefillerReportsData = { selectedDate: null, dates: [], batches: [] };
+
+interface EditState {
+  entryId: number;
+  quantity: string;
+  amount: string;
+}
 
 const RefillerReports: React.FC = () => {
-  const [data, setData] = useState<RefillerReportsData>(emptyReportsData);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
-  const [editQuantity, setEditQuantity] = useState('');
-  const [editAmount, setEditAmount] = useState('');
-  const [savingEntryId, setSavingEntryId] = useState<number | null>(null);
   const { addToast } = useToast();
+  const isMobile = useIsMobile();
+  const [requestedDate, setRequestedDate] = useState<string | null>(null);
+  const [edit, setEdit] = useState<EditState | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const loadReports = async (date?: string | null) => {
-    try {
-      setLoading(true);
-      const response = await api.stockIn.getRefillerReports(date || undefined);
-      setData(response);
-      setSelectedDate(response.selectedDate ?? date ?? null);
-    } catch (error: any) {
-      addToast(error.message || 'Failed to load recent batches', 'error');
-    } finally {
-      setLoading(false);
-    }
+  const { data, initialLoading, loading, setData } = useAsyncData(
+    (signal) => api.stockIn.getRefillerReports(requestedDate || undefined, signal),
+    [requestedDate],
+    EMPTY,
+    'Failed to load recent batches'
+  );
+  const selectedDate = data.selectedDate;
+
+  const selectDate = (date: string) => {
+    setEdit(null);
+    setRequestedDate(date);
   };
 
-  useEffect(() => {
-    loadReports();
-  }, []);
+  const startEdit = (entry: RefillerBatchEntry) =>
+    setEdit({ entryId: entry.id, quantity: String(entry.quantity), amount: String(entry.amount) });
 
-  const handleDateChange = async (date: string) => {
-    setEditingEntryId(null);
-    await loadReports(date);
-  };
-
-  const startEdit = (entry: RefillerBatchEntry) => {
-    setEditingEntryId(entry.id);
-    setEditQuantity(String(entry.quantity));
-    setEditAmount(String(entry.amount));
-  };
-
-  const cancelEdit = () => {
-    setEditingEntryId(null);
-    setEditQuantity('');
-    setEditAmount('');
-  };
-
-  const saveEntry = async (entryId: number) => {
-    const quantity = Number(editQuantity);
-    const amount = Number(editAmount);
-
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      addToast('Quantity must be a whole number greater than 0', 'error');
+  const saveEntry = async () => {
+    if (!edit) return;
+    const qtyCheck = validatePositiveInteger(edit.quantity, 'Quantity');
+    const amtCheck = validatePositiveDecimal(edit.amount, 'Cost');
+    if (!edit.quantity || !qtyCheck.isValid) {
+      addToast(qtyCheck.error || 'Quantity is required', 'error');
       return;
     }
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      addToast('Cost must be greater than 0', 'error');
+    if (!edit.amount || !amtCheck.isValid) {
+      addToast(amtCheck.error || 'Cost is required', 'error');
       return;
     }
-
+    const quantity = Number(edit.quantity);
+    const amount = Number(edit.amount);
     try {
-      setSavingEntryId(entryId);
-      await api.stockIn.updateEntry(entryId, quantity, amount);
-      addToast('Stock entry updated successfully', 'success');
-      cancelEdit();
-      await loadReports(selectedDate);
-    } catch (error: any) {
-      addToast(error.message || 'Failed to update stock entry', 'error');
+      setSaving(true);
+      await api.stockIn.updateEntry(edit.entryId, quantity, amount);
+      // Patch the entry locally instead of re-fetching the whole report.
+      setData((current) => ({
+        ...current,
+        batches: current.batches.map((batch) => ({
+          ...batch,
+          entries: batch.entries.map((e) => (e.id === edit.entryId ? { ...e, quantity, amount } : e)),
+        })),
+      }));
+      setEdit(null);
+      addToast('Stock entry updated', 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Failed to update stock entry', 'error');
     } finally {
-      setSavingEntryId(null);
+      setSaving(false);
     }
   };
 
-  const selectedDateSummary = data.dates.find((group) => group.date === selectedDate) ?? (
+  if (initialLoading) return <Loading label="Loading your batches…" />;
+
+  const summary = data.dates.find((d) => d.date === selectedDate) ?? (
     selectedDate && data.batches.length > 0
-      ? {
-          date: selectedDate,
-          batchCount: data.batches.length,
-          itemCount: data.batches.reduce((total, batch) => total + batch.itemCount, 0)
-        }
+      ? { date: selectedDate, batchCount: data.batches.length, itemCount: data.batches.reduce((t, b) => t + b.itemCount, 0) }
       : null
   );
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <header>
-          <h2 className="text-3xl sm:text-4xl font-light text-slate-900 tracking-tight">Recent Batch Edits</h2>
-          <p className="text-slate-500 mt-1 text-base sm:text-lg">You can edit quantity and cost in your latest five batches.</p>
-        </header>
-        <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400">
-          <Loader2 className="animate-spin mb-4 text-indigo-500" size={40} />
-          <p>Loading editable batches...</p>
-        </div>
+  const editControls = (entry: RefillerBatchEntry) =>
+    edit?.entryId === entry.id ? (
+      <div className="row" style={{ justifyContent: 'flex-end' }}>
+        <button className="btn btn-success btn-sm" onClick={saveEntry} disabled={saving} aria-label="Save changes">
+          {saving ? <Spinner size={14} /> : <Check size={14} />} Save
+        </button>
+        <button className="icon-btn" onClick={() => setEdit(null)} disabled={saving} aria-label="Cancel editing">
+          <X size={16} />
+        </button>
       </div>
+    ) : (
+      <button className="icon-btn primary" onClick={() => startEdit(entry)} disabled={saving} aria-label={`Edit ${entry.productName}`} title="Edit">
+        <Edit2 size={16} />
+      </button>
     );
-  }
+
+  const qtyField = (entry: RefillerBatchEntry) =>
+    edit?.entryId === entry.id ? (
+      <input
+        className="input input-sm num-input"
+        inputMode="numeric"
+        aria-label="Quantity"
+        value={edit.quantity}
+        autoFocus
+        onChange={(e) => setEdit({ ...edit, quantity: sanitizeNumberInput(e.target.value, false) })}
+        onKeyDown={(e) => { if (e.key === 'Enter') saveEntry(); if (e.key === 'Escape') setEdit(null); }}
+        style={{ maxWidth: 110, marginLeft: 'auto' }}
+      />
+    ) : (
+      <span className="num strong">{entry.quantity}</span>
+    );
+
+  const amtField = (entry: RefillerBatchEntry) =>
+    edit?.entryId === entry.id ? (
+      <input
+        className="input input-sm num-input"
+        inputMode="decimal"
+        aria-label="Cost"
+        value={edit.amount}
+        onChange={(e) => setEdit({ ...edit, amount: sanitizeNumberInput(e.target.value, true) })}
+        onKeyDown={(e) => { if (e.key === 'Enter') saveEntry(); if (e.key === 'Escape') setEdit(null); }}
+        style={{ maxWidth: 140, marginLeft: 'auto' }}
+      />
+    ) : (
+      <span className="num">{formatAmount(entry.amount)}</span>
+    );
 
   return (
-    <div className="space-y-6 pb-12">
-      <header>
-        <h2 className="text-3xl sm:text-4xl font-light text-slate-900 tracking-tight">Recent Batch Edits</h2>
-        <p className="text-slate-500 mt-1 text-base sm:text-lg">
-          Edit only the quantity and cost for entries inside your latest five outlet batches.
-        </p>
-      </header>
+    <div className="stack-lg page">
+      <ProgressBar active={loading} />
+      <PageHeader title="My recent batches" subtitle="Correct the quantity or cost of entries in your latest five outlet batches." />
 
-      <section className="glass-panel p-4 rounded-2xl w-full space-y-4">
-        <div className="flex items-center gap-2 text-slate-500">
-          <CalendarDays size={20} />
-          <span className="text-xs font-bold uppercase tracking-wider">Choose Report Date</span>
-        </div>
-
+      <section className="card card-pad stack">
+        <span className="row label"><CalendarDays size={16} /> Batch date</span>
         {data.dates.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+          <div className="chips">
             {data.dates.map((group) => (
-              <button
-                key={group.date}
-                onClick={() => handleDateChange(group.date)}
-                className={`w-full px-4 py-3 rounded-xl text-left text-sm font-bold transition-all border ${
-                  selectedDate === group.date
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/20'
-                    : 'text-slate-600 border-transparent hover:bg-white/50 hover:border-white/50 hover:text-slate-800'
-                }`}
-              >
-                <div>{formatIndianDate(group.date)}</div>
-                <div className={`mt-1 text-[11px] font-medium ${selectedDate === group.date ? 'text-slate-300' : 'text-slate-400'}`}>
-                  {group.batchCount} batches • {group.itemCount} items
-                </div>
+              <button key={group.date} className="chip" aria-pressed={selectedDate === group.date} onClick={() => selectDate(group.date)}>
+                <strong>{formatIndianDate(group.date)}</strong>
+                <span>{group.batchCount} batches · {group.itemCount} items</span>
               </button>
             ))}
           </div>
         ) : (
-          <span className="text-sm text-slate-400 italic">No editable batches found.</span>
+          <span className="subtle">No editable batches found.</span>
         )}
       </section>
 
-      {selectedDateSummary && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          <div className="glass-panel rounded-2xl p-5">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Selected Date</div>
-            <div className="mt-2 text-xl sm:text-2xl font-semibold text-slate-900 break-words">{formatIndianDate(selectedDateSummary.date)}</div>
-          </div>
-          <div className="glass-panel rounded-2xl p-5">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Batches</div>
-            <div className="mt-2 text-xl sm:text-2xl font-semibold text-slate-900">{selectedDateSummary.batchCount}</div>
-          </div>
-          <div className="glass-panel rounded-2xl p-5">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Editable Items</div>
-            <div className="mt-2 text-xl sm:text-2xl font-semibold text-slate-900">{selectedDateSummary.itemCount}</div>
-          </div>
-        </section>
+      {summary && (
+        <div className="stats">
+          <StatCard label="Selected date" value={formatIndianDate(summary.date)} />
+          <StatCard label="Batches" value={summary.batchCount} />
+          <StatCard label="Editable items" value={summary.itemCount} />
+        </div>
       )}
 
       {selectedDate && data.batches.length > 0 ? (
-        <div className="space-y-8">
-          {data.batches.map((batch: RefillerBatch) => (
-            <div key={batch.batchId} className="glass-panel rounded-[32px] overflow-hidden shadow-xl ring-1 ring-black/5">
-              <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div className="flex-1">
-                  <h3 className="text-white text-base sm:text-lg font-bold break-words">
-                    {batch.batchName || `Stock Entry #${batch.batchNumber}`}
-                  </h3>
-                  <p className="text-slate-300 text-xs sm:text-sm mt-2 break-words">
-                    Date: {formatIndianDate(batch.entryDate)} • Submitted: {formatIndianTime(batch.createdAt)} • {batch.itemCount} items
-                  </p>
-                </div>
+        data.batches.map((batch) => (
+          <section key={batch.batchId} className="card">
+            <div className="batch-head">
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 700 }}>{batch.batchName || `Stock Entry #${batch.batchNumber}`}</h3>
+                <p className="meta">
+                  {formatIndianDate(batch.entryDate)} · Submitted {formatIndianTime(batch.createdAt)} · {batch.itemCount} items
+                </p>
               </div>
+            </div>
 
-              <div className="md:hidden p-4 space-y-3 bg-white/50">
+            {isMobile ? (
+              <div>
                 {batch.entries.map((entry) => (
-                  <div key={entry.id} className="rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-slate-800 break-words">{entry.productName}</div>
-                        <div className="text-xs text-slate-500 mt-1">{entry.brand}</div>
+                  <div key={entry.id} className="mobile-card">
+                    <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div className="cell-title">{entry.productName}</div>
+                        <div className="cell-sub">{entry.brand}</div>
                       </div>
-                      {editingEntryId === entry.id ? (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => saveEntry(entry.id)}
-                            disabled={savingEntryId === entry.id}
-                            className="p-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
-                          >
-                            <Check size={16} />
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            disabled={savingEntryId === entry.id}
-                            className="p-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition disabled:opacity-50"
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => startEdit(entry)}
-                          className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                      )}
+                      {editControls(entry)}
                     </div>
-
-                    <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
-                      <label className="block">
-                        <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Quantity</div>
-                        {editingEntryId === entry.id ? (
-                          <input
-                            type="number"
-                            min="1"
-                            value={editQuantity}
-                            onChange={(e) => setEditQuantity(e.target.value)}
-                            className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                          />
-                        ) : (
-                          <div className="font-semibold text-slate-800">{entry.quantity}</div>
-                        )}
-                      </label>
-                      <label className="block">
-                        <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Cost</div>
-                        {editingEntryId === entry.id ? (
-                          <input
-                            type="number"
-                            min="0.01"
-                            step="0.01"
-                            value={editAmount}
-                            onChange={(e) => setEditAmount(e.target.value)}
-                            className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                          />
-                        ) : (
-                          <div className="font-semibold text-slate-800">{entry.amount.toFixed(2)}</div>
-                        )}
-                      </label>
+                    <div className="kv">
+                      <label><span className="cell-sub">QUANTITY</span><div>{qtyField(entry)}</div></label>
+                      <label><span className="cell-sub">COST</span><div>{amtField(entry)}</div></label>
                     </div>
                   </div>
                 ))}
               </div>
-
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[720px]">
+            ) : (
+              <div className="table-wrap">
+                <table className="table">
                   <thead>
-                    <tr className="bg-slate-900 text-white text-[10px] uppercase tracking-widest font-bold">
-                      <th className="px-6 py-4 border-r border-white/10">Item</th>
-                      <th className="px-6 py-4 border-r border-white/10">Brand</th>
-                      <th className="px-4 py-4 text-center border-r border-white/10">Quantity</th>
-                      <th className="px-4 py-4 text-right border-r border-white/10">Cost</th>
-                      <th className="px-4 py-4 text-center">Action</th>
+                    <tr>
+                      <th>Item</th>
+                      <th>Brand</th>
+                      <th className="text-right">Quantity</th>
+                      <th className="text-right">Cost (₹)</th>
+                      <th className="text-right" style={{ width: 160 }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {batch.entries.map((entry) => (
-                      <tr key={entry.id} className="hover:bg-slate-50/50 border-b border-slate-100/50 transition-colors">
-                        <td className="px-6 py-3 text-sm font-semibold text-slate-700 border-r border-slate-100/50">{entry.productName}</td>
-                        <td className="px-6 py-3 text-xs text-slate-500 border-r border-slate-100/50">{entry.brand}</td>
-                        <td className="px-4 py-3 text-center border-r border-slate-100/50">
-                          {editingEntryId === entry.id ? (
-                            <input
-                              type="number"
-                              min="1"
-                              value={editQuantity}
-                              onChange={(e) => setEditQuantity(e.target.value)}
-                              className="w-24 mx-auto px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-center"
-                            />
-                          ) : (
-                            <span className="text-sm font-bold text-slate-900">{entry.quantity}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right border-r border-slate-100/50">
-                          {editingEntryId === entry.id ? (
-                            <input
-                              type="number"
-                              min="0.01"
-                              step="0.01"
-                              value={editAmount}
-                              onChange={(e) => setEditAmount(e.target.value)}
-                              className="w-32 ml-auto px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-right"
-                            />
-                          ) : (
-                            <span className="text-sm font-semibold text-slate-800">{entry.amount.toFixed(2)}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {editingEntryId === entry.id ? (
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                onClick={() => saveEntry(entry.id)}
-                                disabled={savingEntryId === entry.id}
-                                className="p-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
-                              >
-                                <Check size={16} />
-                              </button>
-                              <button
-                                onClick={cancelEdit}
-                                disabled={savingEntryId === entry.id}
-                                className="p-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition disabled:opacity-50"
-                              >
-                                <X size={16} />
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => startEdit(entry)}
-                              className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                          )}
-                        </td>
+                      <tr key={entry.id}>
+                        <td className="cell-title">{entry.productName}</td>
+                        <td className="muted">{entry.brand}</td>
+                        <td className="text-right">{qtyField(entry)}</td>
+                        <td className="text-right">{amtField(entry)}</td>
+                        <td className="text-right">{editControls(entry)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
-          ))}
-        </div>
+            )}
+          </section>
+        ))
       ) : (
-        <div className="glass-panel rounded-[32px] p-10 sm:p-16 lg:p-24 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 text-slate-300 rounded-full mb-6">
-            <PackageSearch size={36} />
-          </div>
-          <div>
-            <h3 className="text-xl sm:text-2xl font-light text-slate-800">No Editable Batches Found</h3>
-            <p className="text-slate-500 mt-2 text-base sm:text-lg">
-              {selectedDate ? `No editable entries found for ${formatIndianDate(selectedDate)}.` : 'Your latest five batches will appear here.'}
-            </p>
-          </div>
-        </div>
+        <section className="card">
+          <EmptyState icon={<PackageSearch size={24} />} title="No editable batches found">
+            {selectedDate ? `No editable entries found for ${formatIndianDate(selectedDate)}.` : 'Your latest five batches will appear here.'}
+          </EmptyState>
+        </section>
       )}
     </div>
   );

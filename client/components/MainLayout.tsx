@@ -1,9 +1,9 @@
-
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Menu } from 'lucide-react';
 import { User } from '../types';
 import Sidebar from './Sidebar';
-import { LayoutProvider, useLayout } from '../context/LayoutContext';
-import { Menu } from 'lucide-react';
+import { Avatar } from './ui';
 
 interface MainLayoutProps {
   user: User;
@@ -11,75 +11,68 @@ interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-// Separate internal component to consume context
-const LayoutContent: React.FC<MainLayoutProps> = ({ user, onLogout, children }) => {
-  const { isSidebarOpen, toggleSidebar, isMobile } = useLayout();
-  const [imageError, setImageError] = useState(false);
+const COLLAPSE_KEY = 'sf_sidebar_collapsed';
 
-  return (
-    <div className="min-h-screen flex relative overflow-x-clip">
-      <Sidebar user={user} onLogout={onLogout} />
-
-      {/* Main Content Wrapper */}
-      <div 
-        className={`flex-1 flex flex-col min-h-screen transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) ${
-          // On mobile, content is always full width. On desktop, it shifts based on floating sidebar width + margins.
-          isMobile ? 'ml-0' : (isSidebarOpen ? 'ml-[20rem]' : 'ml-[6.5rem]') // 20rem = w-72 (18rem) + margin (2rem) approx
-        }`}
-      >
-        {/* Mobile Header for Sidebar Toggle */}
-        {isMobile && (
-          <div className="glass-panel sticky top-0 z-30 px-3 py-2.5 flex items-center justify-between mb-3 mx-3 mt-3 rounded-xl">
-             <div className="flex items-center gap-3">
-                <button 
-                  onClick={toggleSidebar}
-                  className="p-2 -ml-2 text-slate-600 hover:bg-white/50 rounded-lg transition-colors"
-                >
-                  <Menu size={24} />
-                </button>
-                <div className="flex items-center gap-2">
-                  <img 
-                    src="logo.png" 
-                    alt="Logo" 
-                    className="w-8 h-8 object-contain rounded-lg" 
-                  />
-                  <span className="font-black text-slate-800 tracking-tight">MEOWENDI</span>
-                </div>
-             </div>
-             {/* Mobile header avatar */}
-             <div className="relative w-8 h-8">
-               {user.avatarUrl && user.avatarUrl.trim() !== '' && !imageError ? (
-                 <img 
-                   src={user.avatarUrl} 
-                   alt={user.name}
-                   className="w-8 h-8 rounded-full object-cover shadow-md"
-                   onError={() => setImageError(true)}
-                 />
-               ) : (
-                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
-                   {user.name.charAt(0)}
-                 </div>
-               )}
-             </div>
-          </div>
-        )}
-
-        {/* Page Content */}
-        <main className="flex-1 px-3 py-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden">
-          <div className="max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 w-full">
-            {children}
-          </div>
-        </main>
-      </div>
-    </div>
-  );
+const readCollapsed = () => {
+  try {
+    return localStorage.getItem(COLLAPSE_KEY) === '1';
+  } catch {
+    return false;
+  }
 };
 
-const MainLayout: React.FC<MainLayoutProps> = (props) => {
+/**
+ * App shell. Desktop vs mobile behaviour is handled purely in CSS media queries,
+ * so there are no resize listeners re-rendering the whole tree.
+ */
+const MainLayout: React.FC<MainLayoutProps> = ({ user, onLogout, children }) => {
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { pathname } = useLocation();
+
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => setDrawerOpen(false), [pathname]);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDrawerOpen(false);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [drawerOpen]);
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+
   return (
-    <LayoutProvider>
-      <LayoutContent {...props} />
-    </LayoutProvider>
+    <div className={`shell${collapsed ? ' collapsed' : ''}${drawerOpen ? ' drawer-open' : ''}`}>
+      <Sidebar user={user} onLogout={onLogout} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} onNavigate={closeDrawer} />
+      <div className="scrim" onClick={closeDrawer} aria-hidden="true" />
+
+      <div className="main">
+        <header className="topbar">
+          <button className="icon-btn" aria-label="Open menu" onClick={() => setDrawerOpen(true)}>
+            <Menu size={22} />
+          </button>
+          <img src="favicon-96x96.png" alt="" className="brand-logo" width={30} height={30} />
+          <span className="brand-name">MEOWENDI</span>
+          <span className="spacer" />
+          <Avatar name={user.name} url={user.avatarUrl} size={30} />
+        </header>
+
+        <main className="content">{children}</main>
+      </div>
+    </div>
   );
 };
 
